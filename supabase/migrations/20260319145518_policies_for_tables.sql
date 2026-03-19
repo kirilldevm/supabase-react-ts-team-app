@@ -1,3 +1,7 @@
+ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+
 -- Teams policies
 CREATE POLICY "Users can view their own team"
   ON public.teams FOR SELECT
@@ -64,7 +68,7 @@ CREATE POLICY "Users can update draft products in their team"
     team_id = (SELECT public.get_user_team_id())
   );
 
--- Allow status transitions: draft -> active or draft -> deleted (soft delete)
+-- Allow status transitions
 CREATE POLICY "Users can publish or soft-delete draft products"
   ON public.products FOR UPDATE
   TO authenticated
