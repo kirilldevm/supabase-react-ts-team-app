@@ -18,6 +18,8 @@ BEGIN
 END;
 $$;
 
+
+
 -- Cron: purge deleted products older than 2 weeks
 SELECT cron.schedule(
   'purge-deleted-products',

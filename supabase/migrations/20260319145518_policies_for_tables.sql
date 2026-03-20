@@ -13,7 +13,10 @@ CREATE POLICY "Users can view their own team"
 CREATE POLICY "Authenticated users can create teams"
   ON public.teams FOR INSERT
   TO authenticated
-  WITH CHECK (true);
+  WITH CHECK (
+    (select auth.uid()) IS NOT NULL
+  );
+
 
 -- Profiles policies
 CREATE POLICY "Users can view profiles in their team"
@@ -27,7 +30,7 @@ CREATE POLICY "Users can insert own profile when creating or joining team"
   ON public.profiles FOR INSERT
   TO authenticated
   WITH CHECK (
-    user_id = auth.uid()
+    user_id = (select auth.uid())
   );
 
 CREATE POLICY "Users can update profiles in their team"
@@ -53,11 +56,11 @@ CREATE POLICY "Users can insert products in their team"
   TO authenticated
   WITH CHECK (
     team_id = (SELECT public.get_user_team_id())
-    AND created_by = auth.uid()
+    AND created_by = (select auth.uid())
     AND status = 'draft'
   );
 
-CREATE POLICY "Users can update draft products in their team"
+CREATE POLICY "Users can update products in their team"
   ON public.products FOR UPDATE
   TO authenticated
   USING (
@@ -66,17 +69,8 @@ CREATE POLICY "Users can update draft products in their team"
   )
   WITH CHECK (
     team_id = (SELECT public.get_user_team_id())
-  );
-
--- Allow status transitions
-CREATE POLICY "Users can publish or soft-delete draft products"
-  ON public.products FOR UPDATE
-  TO authenticated
-  USING (
-    team_id = (SELECT public.get_user_team_id())
-    AND status = 'draft'
-  )
-  WITH CHECK (
-    team_id = (SELECT public.get_user_team_id())
-    AND status IN ('active', 'deleted')
+    AND (
+      status = 'draft'
+      OR status IN ('active', 'deleted')
+    )
   );

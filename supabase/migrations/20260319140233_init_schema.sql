@@ -60,6 +60,7 @@ CREATE INDEX products_search_vector_idx ON public.products USING gin(search_vect
 CREATE OR REPLACE FUNCTION public.set_product_deleted_at()
 RETURNS TRIGGER
 LANGUAGE plpgsql
+SET search_path = public
 AS $$
 BEGIN
   IF NEW.status = 'deleted' AND (OLD.status IS NULL OR OLD.status != 'deleted') THEN
