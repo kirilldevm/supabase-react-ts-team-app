@@ -3,5 +3,8 @@
   "private": true,
   "dependencies": {
     "@supabase/supabase-js": "^2.99.3"
+  },
+  "devDependencies": {
+    "@types/deno": "^2.5.0"
   }
 }
