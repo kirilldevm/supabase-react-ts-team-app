@@ -1,2 +1,4 @@
 .env
 !.env.example
+
+supabase/functions/node_modules/
