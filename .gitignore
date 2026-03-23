@@ -1,4 +1,5 @@
 .env
 !.env.example
+supabase/.env
 
 supabase/functions/node_modules/

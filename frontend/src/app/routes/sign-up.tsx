@@ -1,3 +1,5 @@
+import { LoginWithOAuthForm } from '@/components/login-with-google-form';
+import Separator from '@/components/shared/separator';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -84,7 +86,14 @@ export default function SignUp() {
           ) : (
             <Card>
               <CardHeader>
-                <CardTitle className='text-2xl'>Sign up</CardTitle>
+                <CardTitle className='text-2xl text-center mb-2'>
+                  Sign up
+                </CardTitle>
+
+                <LoginWithOAuthForm />
+
+                <Separator />
+
                 <CardDescription>Create a new account</CardDescription>
               </CardHeader>
               <CardContent>

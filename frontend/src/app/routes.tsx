@@ -6,6 +6,7 @@ import ForgotPassword from './routes/forgot-password'
 import UpdatePassword from './routes/update-password'
 import Protected from './routes/protected'
 import Logout from './routes/logout'
+import AuthCallback from './routes/auth.callback'
 import AuthConfirm from './routes/auth.confirm'
 import AuthError from './routes/auth.error'
 
@@ -41,6 +42,10 @@ const routes: RouteObject[] = [
       {
         path: 'logout',
         element: <Logout />,
+      },
+      {
+        path: 'auth/callback',
+        element: <AuthCallback />,
       },
       {
         path: 'auth/confirm',
