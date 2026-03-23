@@ -1,3 +1,4 @@
+import { PAGES } from '@/configs/pages.config';
 import { createClient } from '@/lib/client';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -16,7 +17,7 @@ export default function AuthCallback() {
     void (async () => {
       const { data: existing } = await supabase.auth.getSession();
       if (existing.session) {
-        navigate('/protected', { replace: true });
+        navigate(PAGES.APP.HOME, { replace: true });
         return;
       }
 
@@ -29,7 +30,7 @@ export default function AuthCallback() {
           for (let i = 0; i < 60; i++) {
             const { data } = await supabase.auth.getSession();
             if (data.session) {
-              navigate('/protected', { replace: true });
+              navigate(PAGES.APP.HOME, { replace: true });
               return;
             }
             await new Promise((r) => setTimeout(r, 50));
@@ -48,13 +49,13 @@ export default function AuthCallback() {
           });
           return;
         }
-        navigate('/protected', { replace: true });
+        navigate(PAGES.APP.HOME, { replace: true });
         return;
       }
 
       const { data: after } = await supabase.auth.getSession();
       if (after.session) {
-        navigate('/protected', { replace: true });
+        navigate(PAGES.APP.HOME, { replace: true });
         return;
       }
 

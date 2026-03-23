@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PAGES } from '@/configs/pages.config';
 import { createClient } from '@/lib/client';
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
@@ -49,7 +50,7 @@ export default function SignUp() {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/confirm?next=/protected`,
+        emailRedirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(PAGES.APP.HOME)}`,
       },
     });
 

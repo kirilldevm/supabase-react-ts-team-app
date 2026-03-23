@@ -1,16 +1,12 @@
 import { PAGES } from './pages.config';
 
 /**
- * An Array of routes that are used for authentication
- * These routes don't require authentication
- * @type {string[]}
+ * Routes that never require a session (marketing, auth UI, callbacks).
  */
 export const publicRoutes = [PAGES.HOME, PAGES.AUTH.AUTH_CALLBACK];
 
 /**
- * An Array of routes that are used for authentication
- * These routes will redirect logged in users to /settings
- * @type {string[]}
+ * Auth-only screens: logged-in users are usually redirected away (see Login / SignUp).
  */
 export const authRoutes = [
   PAGES.AUTH.LOGIN,
@@ -22,15 +18,7 @@ export const authRoutes = [
   PAGES.AUTH.AUTH_ERROR,
 ];
 
-/**
- * The prefix for API auth routes
- * Routes that start with this prefix are used for API authentication purposes
- * @type {string}
- */
 export const API_AUTH_PREFIX = '/api/auth';
 
-/**
- * The default route to redirect logged in users to
- * @type {string}
- */
-export const DEFAULT_LOGIN_REDIRECT = PAGES.PROTECTED.HOME;
+/** After sign-in, router + `ProtectedLayout` send users here or to onboarding. */
+export const DEFAULT_LOGIN_REDIRECT = PAGES.APP.HOME;

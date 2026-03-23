@@ -1,6 +1,14 @@
 export const PAGES = {
   HOME: '/',
 
+  /** Logged-in app (requires team / finished onboarding) */
+  APP: {
+    HOME: '/app',
+  },
+
+  /** Create or join a team */
+  ONBOARDING: '/onboarding',
+
   AUTH: {
     LOGIN: '/login',
     SIGN_UP: '/sign-up',
@@ -11,7 +19,4 @@ export const PAGES = {
     AUTH_CONFIRM: '/auth/confirm',
     AUTH_ERROR: '/auth/error',
   },
-  PROTECTED: {
-    HOME: '/protected',
-  },
-};
+} as const;

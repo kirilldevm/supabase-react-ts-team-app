@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PAGES } from '@/configs/pages.config';
 import { createClient } from '@/lib/client';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -43,7 +44,7 @@ export default function UpdatePassword() {
       return;
     }
 
-    navigate('/protected', { replace: true });
+    navigate(PAGES.APP.HOME, { replace: true });
   }
 
   return (

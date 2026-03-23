@@ -1,14 +1,17 @@
-import { type RouteObject } from 'react-router'
-import { Navigate, Outlet } from 'react-router'
-import Login from './routes/login'
-import SignUp from './routes/sign-up'
-import ForgotPassword from './routes/forgot-password'
-import UpdatePassword from './routes/update-password'
-import Protected from './routes/protected'
-import Logout from './routes/logout'
-import AuthCallback from './routes/auth.callback'
-import AuthConfirm from './routes/auth.confirm'
-import AuthError from './routes/auth.error'
+import { type RouteObject } from 'react-router';
+import { Navigate, Outlet } from 'react-router';
+import { PAGES } from '@/configs/pages.config';
+import ProtectedLayout from './layouts/protected-layout';
+import AppHome from './routes/app-home';
+import OnboardingPage from './routes/onboarding';
+import Login from './routes/login';
+import SignUp from './routes/sign-up';
+import ForgotPassword from './routes/forgot-password';
+import UpdatePassword from './routes/update-password';
+import Logout from './routes/logout';
+import AuthCallback from './routes/auth.callback';
+import AuthConfirm from './routes/auth.confirm';
+import AuthError from './routes/auth.error';
 
 const routes: RouteObject[] = [
   {
@@ -17,7 +20,7 @@ const routes: RouteObject[] = [
     children: [
       {
         index: true,
-        element: <Navigate to="/protected" replace />,
+        element: <Navigate to={PAGES.APP.HOME} replace />,
       },
       {
         path: 'login',
@@ -36,8 +39,21 @@ const routes: RouteObject[] = [
         element: <UpdatePassword />,
       },
       {
+        element: <ProtectedLayout />,
+        children: [
+          {
+            path: 'app',
+            element: <AppHome />,
+          },
+          {
+            path: 'onboarding',
+            element: <OnboardingPage />,
+          },
+        ],
+      },
+      {
         path: 'protected',
-        element: <Protected />,
+        element: <Navigate to={PAGES.APP.HOME} replace />,
       },
       {
         path: 'logout',
@@ -57,6 +73,6 @@ const routes: RouteObject[] = [
       },
     ],
   },
-]
+];
 
-export default routes
+export default routes;
