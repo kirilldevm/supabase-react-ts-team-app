@@ -12,33 +12,36 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PAGES } from '@/configs/pages.config';
 import { createClient } from '@/lib/client';
+import { type LoginFormValues, loginSchema } from '@/schemas';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router';
 
 export default function Login() {
   const navigate = useNavigate();
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: '', password: '' },
+  });
 
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
+  async function onSubmit(values: LoginFormValues) {
+    setServerError(null);
 
     const supabase = createClient();
     const { error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+      email: values.email,
+      password: values.password,
     });
 
-    setLoading(false);
-
     if (authError) {
-      setError(
+      setServerError(
         authError instanceof Error ? authError.message : 'An error occurred',
       );
       return;
@@ -64,23 +67,29 @@ export default function Login() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit}>
+              <form onSubmit={handleSubmit(onSubmit)} noValidate>
                 <div className='flex flex-col gap-6'>
                   <div className='grid gap-2'>
                     <Label htmlFor='email'>Email</Label>
                     <Input
                       id='email'
-                      name='email'
                       type='email'
                       placeholder='m@example.com'
-                      required
+                      autoComplete='email'
+                      aria-invalid={Boolean(errors.email)}
+                      {...register('email')}
                     />
+                    {errors.email ? (
+                      <p className='text-destructive text-sm' role='alert'>
+                        {errors.email.message}
+                      </p>
+                    ) : null}
                   </div>
                   <div className='grid gap-2'>
                     <div className='flex items-center'>
                       <Label htmlFor='password'>Password</Label>
                       <Link
-                        to='/forgot-password'
+                        to={PAGES.AUTH.FORGOT_PASSWORD}
                         className='ml-auto inline-block text-sm underline-offset-4 hover:underline'
                       >
                         Forgot your password?
@@ -89,18 +98,31 @@ export default function Login() {
                     <Input
                       id='password'
                       type='password'
-                      name='password'
-                      required
+                      autoComplete='current-password'
+                      aria-invalid={Boolean(errors.password)}
+                      {...register('password')}
                     />
+                    {errors.password ? (
+                      <p className='text-destructive text-sm' role='alert'>
+                        {errors.password.message}
+                      </p>
+                    ) : null}
                   </div>
-                  {error && <p className='text-sm text-red-500'>{error}</p>}
-                  <Button type='submit' className='w-full' disabled={loading}>
-                    {loading ? 'Logging in...' : 'Login'}
+                  {serverError ? (
+                    <p className='text-sm text-red-500' role='alert'>
+                      {serverError}
+                    </p>
+                  ) : null}
+                  <Button type='submit' className='w-full' disabled={isSubmitting}>
+                    {isSubmitting ? 'Logging in...' : 'Login'}
                   </Button>
                 </div>
                 <div className='mt-4 text-center text-sm'>
                   Don&apos;t have an account?{' '}
-                  <Link to='/sign-up' className='underline underline-offset-4'>
+                  <Link
+                    to={PAGES.AUTH.SIGN_UP}
+                    className='underline underline-offset-4'
+                  >
                     Sign up
                   </Link>
                 </div>

@@ -10,35 +10,38 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PAGES } from '@/configs/pages.config';
 import { createClient } from '@/lib/client';
+import {
+  type UpdatePasswordFormValues,
+  updatePasswordSchema,
+} from '@/schemas';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router';
 
 export default function UpdatePassword() {
   const navigate = useNavigate();
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<UpdatePasswordFormValues>({
+    resolver: zodResolver(updatePasswordSchema),
+    defaultValues: { password: '' },
+  });
 
-    const formData = new FormData(e.currentTarget);
-    const password = formData.get('password') as string;
-
-    if (!password) {
-      setError('Password is required');
-      setLoading(false);
-      return;
-    }
+  async function onSubmit(values: UpdatePasswordFormValues) {
+    setServerError(null);
 
     const supabase = createClient();
-    const { error: authError } = await supabase.auth.updateUser({ password });
-
-    setLoading(false);
+    const { error: authError } = await supabase.auth.updateUser({
+      password: values.password,
+    });
 
     if (authError) {
-      setError(
+      setServerError(
         authError instanceof Error ? authError.message : 'An error occurred',
       );
       return;
@@ -59,21 +62,31 @@ export default function UpdatePassword() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit}>
+              <form onSubmit={handleSubmit(onSubmit)} noValidate>
                 <div className='flex flex-col gap-6'>
                   <div className='grid gap-2'>
                     <Label htmlFor='password'>New password</Label>
                     <Input
                       id='password'
-                      name='password'
                       type='password'
                       placeholder='New password'
-                      required
+                      autoComplete='new-password'
+                      aria-invalid={Boolean(errors.password)}
+                      {...register('password')}
                     />
+                    {errors.password ? (
+                      <p className='text-destructive text-sm' role='alert'>
+                        {errors.password.message}
+                      </p>
+                    ) : null}
                   </div>
-                  {error && <p className='text-sm text-red-500'>{error}</p>}
-                  <Button type='submit' className='w-full' disabled={loading}>
-                    {loading ? 'Saving...' : 'Save new password'}
+                  {serverError ? (
+                    <p className='text-sm text-red-500' role='alert'>
+                      {serverError}
+                    </p>
+                  ) : null}
+                  <Button type='submit' className='w-full' disabled={isSubmitting}>
+                    {isSubmitting ? 'Saving...' : 'Save new password'}
                   </Button>
                 </div>
               </form>

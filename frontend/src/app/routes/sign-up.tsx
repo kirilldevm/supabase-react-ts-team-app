@@ -11,57 +11,50 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PAGES } from '@/configs/pages.config';
-import { createClient } from '@/lib/client';
+import { supabase } from '@/lib/client';
+import { type SignUpFormValues, signUpSchema } from '@/schemas';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 
 export default function SignUp() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
 
   const success = searchParams.has('success');
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<SignUpFormValues>({
+    resolver: zodResolver(signUpSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+      repeatPassword: '',
+    },
+  });
 
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
-    const repeatPassword = formData.get('repeat-password') as string;
+  async function onSubmit(values: SignUpFormValues) {
+    setServerError(null);
 
-    if (!password) {
-      setError('Password is required');
-      setLoading(false);
-      return;
-    }
-
-    if (password !== repeatPassword) {
-      setError('Passwords do not match');
-      setLoading(false);
-      return;
-    }
-
-    const supabase = createClient();
     const { error: authError } = await supabase.auth.signUp({
-      email,
-      password,
+      email: values.email,
+      password: values.password,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(PAGES.APP.HOME)}`,
       },
     });
 
-    setLoading(false);
-
     if (authError) {
-      setError(authError.message);
+      setServerError(authError.message);
       return;
     }
 
-    navigate('/sign-up?success', { replace: true });
+    navigate(`${PAGES.AUTH.SIGN_UP}?success`, { replace: true });
   }
 
   return (
@@ -81,7 +74,9 @@ export default function SignUp() {
                   You&apos;ve successfully signed up. Please check your email to
                   confirm your account before signing in.
                 </p>
-                <Button onClick={() => navigate('/login')}>Login</Button>
+                <Button onClick={() => navigate(PAGES.AUTH.LOGIN)}>
+                  Login
+                </Button>
               </CardContent>
             </Card>
           ) : (
@@ -98,44 +93,73 @@ export default function SignUp() {
                 <CardDescription>Create a new account</CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit(onSubmit)} noValidate>
                   <div className='flex flex-col gap-6'>
                     <div className='grid gap-2'>
                       <Label htmlFor='email'>Email</Label>
                       <Input
                         id='email'
-                        name='email'
                         type='email'
                         placeholder='m@example.com'
-                        required
+                        autoComplete='email'
+                        aria-invalid={Boolean(errors.email)}
+                        {...register('email')}
                       />
+                      {errors.email ? (
+                        <p className='text-destructive text-sm' role='alert'>
+                          {errors.email.message}
+                        </p>
+                      ) : null}
                     </div>
                     <div className='grid gap-2'>
                       <Label htmlFor='password'>Password</Label>
                       <Input
                         id='password'
-                        name='password'
                         type='password'
-                        required
+                        autoComplete='new-password'
+                        aria-invalid={Boolean(errors.password)}
+                        {...register('password')}
                       />
+                      {errors.password ? (
+                        <p className='text-destructive text-sm' role='alert'>
+                          {errors.password.message}
+                        </p>
+                      ) : null}
                     </div>
                     <div className='grid gap-2'>
                       <Label htmlFor='repeat-password'>Repeat Password</Label>
                       <Input
                         id='repeat-password'
-                        name='repeat-password'
                         type='password'
-                        required
+                        autoComplete='new-password'
+                        aria-invalid={Boolean(errors.repeatPassword)}
+                        {...register('repeatPassword')}
                       />
+                      {errors.repeatPassword ? (
+                        <p className='text-destructive text-sm' role='alert'>
+                          {errors.repeatPassword.message}
+                        </p>
+                      ) : null}
                     </div>
-                    {error && <p className='text-sm text-red-500'>{error}</p>}
-                    <Button type='submit' className='w-full' disabled={loading}>
-                      {loading ? 'Creating an account...' : 'Sign up'}
+                    {serverError ? (
+                      <p className='text-sm text-red-500' role='alert'>
+                        {serverError}
+                      </p>
+                    ) : null}
+                    <Button
+                      type='submit'
+                      className='w-full'
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? 'Creating an account...' : 'Sign up'}
                     </Button>
                   </div>
                   <div className='mt-4 text-center text-sm'>
                     Already have an account?{' '}
-                    <Link to='/login' className='underline underline-offset-4'>
+                    <Link
+                      to={PAGES.AUTH.LOGIN}
+                      className='underline underline-offset-4'
+                    >
                       Login
                     </Link>
                   </div>

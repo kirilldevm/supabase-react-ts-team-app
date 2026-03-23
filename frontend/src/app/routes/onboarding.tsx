@@ -15,7 +15,15 @@ import {
   useJoinTeam,
   useOnboardingStatus,
 } from '@/hooks/use-onboarding';
+import {
+  type OnboardingCreateTeamFormValues,
+  onboardingCreateTeamSchema,
+  type OnboardingJoinTeamFormValues,
+  onboardingJoinTeamSchema,
+} from '@/schemas';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router';
 
 export default function OnboardingPage() {
@@ -26,9 +34,17 @@ export default function OnboardingPage() {
   const createTeam = useCreateTeam();
   const joinTeam = useJoinTeam();
 
-  const [teamName, setTeamName] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
-  const [formError, setFormError] = useState<string | null>(null);
+  const [serverError, setServerError] = useState<string | null>(null);
+
+  const createForm = useForm<OnboardingCreateTeamFormValues>({
+    resolver: zodResolver(onboardingCreateTeamSchema),
+    defaultValues: { teamName: '' },
+  });
+
+  const joinForm = useForm<OnboardingJoinTeamFormValues>({
+    resolver: zodResolver(onboardingJoinTeamSchema),
+    defaultValues: { inviteCode: '' },
+  });
 
   useEffect(() => {
     const data = statusQuery.data;
@@ -38,26 +54,27 @@ export default function OnboardingPage() {
     }
   }, [statusQuery.data, navigate]);
 
-  async function onCreateTeam(e: React.FormEvent) {
-    e.preventDefault();
-    setFormError(null);
-
+  async function onCreateTeam(values: OnboardingCreateTeamFormValues) {
+    setServerError(null);
     try {
-      await createTeam.mutateAsync(teamName.trim());
+      await createTeam.mutateAsync(values.teamName);
       navigate(PAGES.APP.HOME, { replace: true });
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Something went wrong');
+      setServerError(
+        err instanceof Error ? err.message : 'Something went wrong',
+      );
     }
   }
 
-  async function onJoinTeam(e: React.FormEvent) {
-    e.preventDefault();
-    setFormError(null);
+  async function onJoinTeam(values: OnboardingJoinTeamFormValues) {
+    setServerError(null);
     try {
-      await joinTeam.mutateAsync(inviteCode.trim());
+      await joinTeam.mutateAsync(values.inviteCode);
       navigate(PAGES.APP.HOME, { replace: true });
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Something went wrong');
+      setServerError(
+        err instanceof Error ? err.message : 'Something went wrong',
+      );
     }
   }
 
@@ -101,33 +118,42 @@ export default function OnboardingPage() {
         </p>
       </div>
 
-      {formError ? (
+      {serverError ? (
         <p className='text-destructive text-sm' role='alert'>
-          {formError}
+          {serverError}
         </p>
       ) : null}
 
       <Card>
         <CardHeader>
           <CardTitle>New team</CardTitle>
+
           <CardDescription>
             You&apos;ll get an invite code to share with teammates.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={onCreateTeam} className='flex flex-col gap-4'>
+          <form
+            onSubmit={createForm.handleSubmit(onCreateTeam)}
+            className='flex flex-col gap-4'
+            noValidate
+          >
             <div className='grid gap-2'>
               <Label htmlFor='team-name'>Team name</Label>
               <Input
                 id='team-name'
-                value={teamName}
-                onChange={(e) => setTeamName(e.target.value)}
                 placeholder='e.g. Acme squad'
-                required
-                minLength={1}
-                maxLength={120}
+                autoComplete='organization'
+                aria-invalid={Boolean(createForm.formState.errors.teamName)}
+                {...createForm.register('teamName')}
               />
+              {createForm.formState.errors.teamName ? (
+                <p className='text-destructive text-sm' role='alert'>
+                  {createForm.formState.errors.teamName.message}
+                </p>
+              ) : null}
             </div>
+
             <Button type='submit' disabled={busy}>
               {createTeam.isPending ? 'Creating…' : 'Create team'}
             </Button>
@@ -138,24 +164,34 @@ export default function OnboardingPage() {
       <Card>
         <CardHeader>
           <CardTitle>Have an invite code?</CardTitle>
+
           <CardDescription>
             Enter the code you received from a teammate.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={onJoinTeam} className='flex flex-col gap-4'>
+          <form
+            onSubmit={joinForm.handleSubmit(onJoinTeam)}
+            className='flex flex-col gap-4'
+            noValidate
+          >
             <div className='grid gap-2'>
               <Label htmlFor='invite'>Invite code</Label>
               <Input
                 id='invite'
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value)}
                 placeholder='ABCD1234'
-                required
-                minLength={4}
                 autoCapitalize='characters'
+                autoComplete='off'
+                aria-invalid={Boolean(joinForm.formState.errors.inviteCode)}
+                {...joinForm.register('inviteCode')}
               />
+              {joinForm.formState.errors.inviteCode ? (
+                <p className='text-destructive text-sm' role='alert'>
+                  {joinForm.formState.errors.inviteCode.message}
+                </p>
+              ) : null}
             </div>
+
             <Button type='submit' variant='secondary' disabled={busy}>
               {joinTeam.isPending ? 'Joining…' : 'Join team'}
             </Button>
