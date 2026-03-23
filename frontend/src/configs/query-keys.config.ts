@@ -14,4 +14,12 @@ export const QUERY_KEYS = {
     STATUS: (userId: string) =>
       [...QUERY_KEYS.ONBOARDING.ALL, 'status', userId] as const,
   },
+  TEAM: {
+    ALL: ['team'] as const,
+    /** Team info (name + invite code) for a given user. */
+    INFO: (userId: string) => [...QUERY_KEYS.TEAM.ALL, 'info', userId] as const,
+    /** All profiles in the team (member list). */
+    MEMBERS: (teamId: string) =>
+      [...QUERY_KEYS.TEAM.ALL, 'members', teamId] as const,
+  },
 } as const;
