@@ -39,3 +39,5 @@ export function createClient(): SupabaseClient {
 
   return browserClient;
 }
+
+export const supabase = createClient();
