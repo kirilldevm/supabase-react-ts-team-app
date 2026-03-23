@@ -365,6 +365,15 @@ inspector_port = 8083
 # The Deno major version to use.
 deno_version = 2
 
+# Public smoke-test function — no JWT (hello-authed still uses default verify_jwt = true)
+# entrypoint: relative to this file (supabase/config.toml). Fixes wrong "supabase/functions/..." paths in the Edge worker on some setups.
+[functions.hello]
+verify_jwt = false
+entrypoint = "./functions/hello/index.ts"
+
+[functions.hello-authed]
+entrypoint = "./functions/hello-authed/index.ts"
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

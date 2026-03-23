@@ -1,5 +1,7 @@
 {
-  "nodeModulesDir": "auto",
+  "imports": {
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2.99.3"
+  },
   "compilerOptions": {
     "lib": ["deno.ns", "deno.unstable", "dom"]
   }

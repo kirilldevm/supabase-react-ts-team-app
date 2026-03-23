@@ -8,7 +8,11 @@
     "strict": true,
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
-    "types": ["@types/deno"]
+    "types": ["@types/deno"],
+    "baseUrl": ".",
+    "paths": {
+      "@supabase/supabase-js": ["./node_modules/@supabase/supabase-js"]
+    }
   },
   "include": ["./**/*.ts"]
 }

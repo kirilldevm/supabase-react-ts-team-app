@@ -5,40 +5,102 @@
 After `_shared` (CORS + auth), the usual flow is:
 
 1. **Run Supabase locally** — `supabase start` (DB + Auth + Functions runtime).
-2. **Serve functions** — `supabase functions serve` (from repo root; auto-loads env from local stack).
-3. **Call from the browser or curl** — confirm CORS and JWT behavior before building “real” functions (teams, products, webhooks).
+2. **Serve functions** — `supabase functions serve` (from repo root; second terminal).
+3. **Call with curl or PowerShell** — confirm CORS and JWT behavior before building “real” functions.
 
 ## Test functions
 
 | Function       | Auth | Purpose                     |
 | -------------- | ---- | --------------------------- |
-| `hello`        | No   | JSON + CORS smoke test      |
+| `hello`        | No\* | JSON + CORS smoke test      |
 | `hello-authed` | Yes  | Same + `getUserFromRequest` |
 
-## Local commands (from repo root)
+\*`verify_jwt = false` for `hello` in `supabase/config.toml`, but **Kong still expects API keys** (see below).
+
+## Why it “does not respond” (hangs in browser or curl)
+
+### 1. Opening the URL in the browser only
+
+The address bar sends **no** `Authorization` / `apikey` headers. Local Kong still forwards to the Edge worker, but the request often **waits until timeout** (looks like “no response”).
+
+**Use curl or your app** with headers (see below).
+
+### 2. Git Bash on Windows + project on `E:` (or other drives)
+
+With `--debug`, the runtime may resolve your file as `file:///Programming/...` (**drive letter missing**). The worker then never boots correctly → **hang or empty response**.
+
+**Fix:** run `supabase functions serve` from **PowerShell** or **Command Prompt**:
+
+```powershell
+cd E:\Programming\trainee\supabase-react-ts-team-app
+npx supabase functions serve
+```
+
+Optional in Git Bash (try if you must stay in Bash):
+
+```bash
+export MSYS2_ARG_CONV_EXCL="*"
+npx supabase functions serve
+```
+
+### 3. `supabase functions serve` not running
+
+`/functions/v1/*` is handled by the Edge runtime that **`functions serve`** starts. If it’s not running, calls can stall.
+
+---
+
+## Local commands
+
+Terminal A:
 
 ```bash
 supabase start
-supabase functions serve
 ```
 
-URLs (default local): `http://127.0.0.1:54321/functions/v1/<name>`
-
-### Public `hello`
+Terminal B (prefer **PowerShell** on Windows):
 
 ```bash
-curl -s http://127.0.0.1:54321/functions/v1/hello
+npx supabase functions serve
 ```
 
-### `hello-authed` (replace `YOUR_ACCESS_TOKEN`)
+### Quick test (PowerShell)
+
+From repo root:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/test-hello.ps1
+```
+
+### Quick test (Bash — load keys from CLI)
 
 ```bash
-curl -s http://127.0.0.1:54321/functions/v1/hello-authed \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
-  -H "apikey: YOUR_ANON_KEY"
+source <(npx supabase status -o env | sed 's/^/export /')
+curl -sS --max-time 30 "http://127.0.0.1:54321/functions/v1/hello" \
+  -H "Authorization: Bearer $ANON_KEY" \
+  -H "apikey: $ANON_KEY"
 ```
 
-`apikey` is required by the local gateway; get both keys from `supabase status`.
+Use the **`ANON_KEY`** line from `supabase status -o env` (JWT-shaped `eyJ...` is fine).
+
+### `hello-authed`
+
+Use a real **user access token** from sign-in, plus the same `apikey`:
+
+```bash
+curl -sS "http://127.0.0.1:54321/functions/v1/hello-authed" \
+  -H "Authorization: Bearer YOUR_USER_ACCESS_TOKEN" \
+  -H "apikey: $ANON_KEY"
+```
+
+---
+
+## `InvalidWorkerCreation` / `No such file or directory`
+
+On **Windows + Docker**, avoid relying on host **`node_modules`** inside the Edge image. This repo uses **`deno.json` `imports`** → `npm:@supabase/supabase-js@…` so the bundler can pull deps without bad mount paths.
+
+Also: **serve from PowerShell** (path / drive issues above).
+
+---
 
 ## Deploy
 
