@@ -8,12 +8,29 @@ After `_shared` (CORS + auth), the usual flow is:
 2. **Serve functions** — `supabase functions serve` (from repo root; second terminal).
 3. **Call with curl or PowerShell** — confirm CORS and JWT behavior before building “real” functions.
 
-## Test functions
+## Functions
 
-| Function       | Auth | Purpose                     |
-| -------------- | ---- | --------------------------- |
-| `hello`        | No\* | JSON + CORS smoke test      |
-| `hello-authed` | Yes  | Same + `getUserFromRequest` |
+| Function       | Auth | Purpose                                      |
+| -------------- | ---- | -------------------------------------------- |
+| `hello`        | No\* | JSON + CORS smoke test                       |
+| `hello-authed` | Yes  | Same + `getUserFromRequest`                  |
+| `onboarding`   | Yes  | Create team or join by invite (service role) |
+
+### `onboarding`
+
+Requires **user JWT** + **`SUPABASE_SERVICE_ROLE_KEY`** in the function env (set automatically with `supabase start` + `functions serve`).
+
+- **GET** — `{ needsOnboarding, team: { id, name, invite_code } | null }`
+- **POST** — body either `{ "action": "create_team", "teamName": "My Squad" }` or `{ "action": "join_team", "inviteCode": "ABCD1234" }`
+
+```bash
+# After sign-in, use the user's access_token from the client session
+curl -sS "http://127.0.0.1:54321/functions/v1/onboarding" \
+  -H "Authorization: Bearer USER_ACCESS_TOKEN" \
+  -H "apikey: $ANON_KEY"
+```
+
+Why Edge Function (not only RLS)? Joining by **invite code** needs to **look up a team** before you have a `profiles` row; RLS hides other teams, so this handler uses the **service role** for that lookup and inserts.
 
 \*`verify_jwt = false` for `hello` in `supabase/config.toml`, but **Kong still expects API keys** (see below).
 

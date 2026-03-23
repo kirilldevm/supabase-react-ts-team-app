@@ -374,6 +374,9 @@ entrypoint = "./functions/hello/index.ts"
 [functions.hello-authed]
 entrypoint = "./functions/hello-authed/index.ts"
 
+[functions.onboarding]
+entrypoint = "./functions/onboarding/index.ts"
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
