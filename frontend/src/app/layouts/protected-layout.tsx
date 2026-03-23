@@ -1,67 +1,54 @@
-import { createClient } from '@/lib/client';
-import { PAGES } from '@/configs/pages.config';
-import type { OnboardingGetResponse } from '@/types/onboarding';
 import { buttonVariants } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { PAGES } from '@/configs/pages.config';
 import { useAuthUser } from '@/hooks/use-auth-user';
+import { supabase } from '@/lib/client';
+import { cn } from '@/lib/utils';
+import type { OnboardingGetResponse } from '@/types/onboarding';
 import type { User } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
-import { Link, Outlet, useLocation, useNavigate } from 'react-router';
+import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router';
 
-type LayoutState = 'loading' | 'ready' | 'unauth';
+type ShellState = 'checking' | 'ready';
 
 export default function ProtectedLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const {
     data: user,
-    isPending: authPending,
+    status: authStatus,
     isError: authQueryError,
     error: authQueryErr,
   } = useAuthUser();
 
-  const [layoutState, setLayoutState] = useState<LayoutState>('loading');
-  const [onboardingFetchError, setOnboardingFetchError] = useState<string | null>(
-    null,
-  );
+  const [shellState, setShellState] = useState<ShellState>('checking');
+  const [onboardingFetchError, setOnboardingFetchError] = useState<
+    string | null
+  >(null);
+
+  const authPending = authStatus === 'pending';
 
   useEffect(() => {
     let cancelled = false;
-    const supabase = createClient();
 
     async function run() {
       setOnboardingFetchError(null);
 
-      if (authPending) {
-        setLayoutState('loading');
-        return;
-      }
-
-      if (authQueryError) {
-        console.error('auth query', authQueryErr);
-        setLayoutState('unauth');
-        navigate(PAGES.AUTH.LOGIN, {
-          replace: true,
-          state: { from: location.pathname },
-        });
+      if (authPending || authQueryError) {
+        setShellState('checking');
         return;
       }
 
       if (!user) {
-        setLayoutState('unauth');
-        navigate(PAGES.AUTH.LOGIN, {
-          replace: true,
-          state: { from: location.pathname },
-        });
+        setShellState('checking');
         return;
       }
 
-      setLayoutState('loading');
+      setShellState('checking');
 
-      const { data, error } = await supabase.functions.invoke<OnboardingGetResponse>(
-        'onboarding',
-        { method: 'GET' },
-      );
+      const { data, error } =
+        await supabase.functions.invoke<OnboardingGetResponse>('onboarding', {
+          method: 'GET',
+        });
 
       if (cancelled) return;
 
@@ -70,7 +57,7 @@ export default function ProtectedLayout() {
         setOnboardingFetchError(
           error.message || 'Could not load team status. Try again.',
         );
-        setLayoutState('ready');
+        setShellState('ready');
         return;
       }
 
@@ -79,17 +66,17 @@ export default function ProtectedLayout() {
 
       if (needsOnboarding && path !== PAGES.ONBOARDING) {
         navigate(PAGES.ONBOARDING, { replace: true });
-        setLayoutState('ready');
+        setShellState('ready');
         return;
       }
 
       if (!needsOnboarding && path === PAGES.ONBOARDING) {
         navigate(PAGES.APP.HOME, { replace: true });
-        setLayoutState('ready');
+        setShellState('ready');
         return;
       }
 
-      setLayoutState('ready');
+      setShellState('ready');
     }
 
     void run();
@@ -97,16 +84,9 @@ export default function ProtectedLayout() {
     return () => {
       cancelled = true;
     };
-  }, [
-    authPending,
-    authQueryError,
-    authQueryErr,
-    user,
-    location.pathname,
-    navigate,
-  ]);
+  }, [authPending, authQueryError, user, location.pathname, navigate]);
 
-  if (layoutState === 'loading') {
+  if (authPending) {
     return (
       <div className='flex min-h-svh items-center justify-center'>
         <p className='text-muted-foreground'>Loading…</p>
@@ -114,11 +94,36 @@ export default function ProtectedLayout() {
     );
   }
 
-  if (layoutState === 'unauth') {
-    return null;
+  if (authQueryError) {
+    console.error('auth query', authQueryErr);
+    return (
+      <Navigate
+        to={PAGES.AUTH.LOGIN}
+        replace
+        state={{ from: location.pathname }}
+      />
+    );
   }
 
-  const outletUser: User | null = user ?? null;
+  if (!user) {
+    return (
+      <Navigate
+        to={PAGES.AUTH.LOGIN}
+        replace
+        state={{ from: location.pathname }}
+      />
+    );
+  }
+
+  if (shellState === 'checking') {
+    return (
+      <div className='flex min-h-svh items-center justify-center'>
+        <p className='text-muted-foreground'>Loading…</p>
+      </div>
+    );
+  }
+
+  const outletUser: User = user;
 
   return (
     <div className='flex min-h-svh flex-col'>
@@ -131,7 +136,7 @@ export default function ProtectedLayout() {
             Team app
           </Link>
           <div className='flex items-center gap-3'>
-            {outletUser?.email ? (
+            {outletUser.email ? (
               <span className='text-muted-foreground hidden truncate text-sm sm:inline max-w-[200px]'>
                 {outletUser.email}
               </span>

@@ -1,6 +1,7 @@
 import { type RouteObject } from 'react-router';
 import { Navigate, Outlet } from 'react-router';
 import { PAGES } from '@/configs/pages.config';
+import GuestLayout from './layouts/guest-layout';
 import ProtectedLayout from './layouts/protected-layout';
 import AppHome from './routes/app-home';
 import OnboardingPage from './routes/onboarding';
@@ -23,20 +24,25 @@ const routes: RouteObject[] = [
         element: <Navigate to={PAGES.APP.HOME} replace />,
       },
       {
-        path: 'login',
-        element: <Login />,
-      },
-      {
-        path: 'sign-up',
-        element: <SignUp />,
-      },
-      {
-        path: 'forgot-password',
-        element: <ForgotPassword />,
-      },
-      {
-        path: 'update-password',
-        element: <UpdatePassword />,
+        element: <GuestLayout />,
+        children: [
+          {
+            path: 'login',
+            element: <Login />,
+          },
+          {
+            path: 'sign-up',
+            element: <SignUp />,
+          },
+          {
+            path: 'forgot-password',
+            element: <ForgotPassword />,
+          },
+          {
+            path: 'update-password',
+            element: <UpdatePassword />,
+          },
+        ],
       },
       {
         element: <ProtectedLayout />,
