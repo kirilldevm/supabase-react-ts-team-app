@@ -1,7 +1,3 @@
-# Call local `hello` with the keys Kong expects (Windows-friendly).
-# Run from repo root:  powershell -ExecutionPolicy Bypass -File scripts/test-hello.ps1
-# Requires: supabase start  AND  supabase functions serve  (second terminal)
-
 $ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "..")
 

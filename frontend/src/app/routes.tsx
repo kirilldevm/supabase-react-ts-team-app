@@ -24,6 +24,14 @@ const routes: RouteObject[] = [
         element: <Navigate to={PAGES.APP.HOME} replace />,
       },
       {
+        path: 'login/register',
+        element: <Navigate to={PAGES.AUTH.SIGN_UP} replace />,
+      },
+      {
+        path: 'register',
+        element: <Navigate to={PAGES.AUTH.SIGN_UP} replace />,
+      },
+      {
         element: <GuestLayout />,
         children: [
           {

@@ -61,6 +61,33 @@ function throwOnboardingFailure(error: unknown, data: unknown): never {
   throw new Error(messageFromInvokeError(error));
 }
 
+async function userAuthHeaders(client: SupabaseClient): Promise<{
+  Authorization: string;
+}> {
+  const { error: userError } = await client.auth.getUser();
+  if (userError) {
+    throw userError;
+  }
+
+  const {
+    data: { session },
+    error,
+  } = await client.auth.getSession();
+
+  if (error) {
+    throw error;
+  }
+
+  const token = session?.access_token;
+  if (!token) {
+    throw new Error(
+      'No session access token. Sign in again or wait for the session to finish loading.',
+    );
+  }
+
+  return { Authorization: `Bearer ${token}` };
+}
+
 class OnboardingService {
   private readonly client: SupabaseClient;
 
@@ -69,9 +96,12 @@ class OnboardingService {
   }
 
   async getStatus(): Promise<OnboardingGetResponse> {
+    const headers = await userAuthHeaders(this.client);
+
     const { data, error } =
       await this.client.functions.invoke<OnboardingGetResponse>('onboarding', {
         method: 'GET',
+        headers,
       });
 
     if (error || !data) {
@@ -82,10 +112,13 @@ class OnboardingService {
   }
 
   async createTeam(teamName: string): Promise<OnboardingTeam> {
+    const headers = await userAuthHeaders(this.client);
+
     const { data, error } = await this.client.functions.invoke<
       { ok: true; team: OnboardingTeam; action: string } | OnboardingErrorBody
     >('onboarding', {
       method: 'POST',
+      headers,
       body: { action: 'create_team', teamName },
     });
 
@@ -97,10 +130,13 @@ class OnboardingService {
   }
 
   async joinTeam(inviteCode: string): Promise<OnboardingTeam> {
+    const headers = await userAuthHeaders(this.client);
+
     const { data, error } = await this.client.functions.invoke<
       { ok: true; team: OnboardingTeam; action: string } | OnboardingErrorBody
     >('onboarding', {
       method: 'POST',
+      headers,
       body: { action: 'join_team', inviteCode },
     });
 

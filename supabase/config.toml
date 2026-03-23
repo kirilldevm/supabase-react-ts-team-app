@@ -392,7 +392,10 @@ entrypoint = "./functions/hello/index.ts"
 [functions.hello-authed]
 entrypoint = "./functions/hello-authed/index.ts"
 
+# Auth enforced in getUserFromRequest. Gateway JWT verify + sb_publishable_* → 401 Invalid JWT.
+# https://supabase.com/docs/guides/troubleshooting/edge-function-401-error-response
 [functions.onboarding]
+verify_jwt = false
 entrypoint = "./functions/onboarding/index.ts"
 
 # [edge_runtime.secrets]

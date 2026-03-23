@@ -2,7 +2,7 @@ import {
   createClient,
   type SupabaseClient,
   type User,
-} from '@supabase/supabase-js';
+} from 'npm:@supabase/supabase-js@2.99.3';
 
 import { corsHeaders } from './cors.ts';
 

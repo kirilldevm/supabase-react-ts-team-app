@@ -41,6 +41,7 @@ export default function OnboardingPage() {
   async function onCreateTeam(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
+
     try {
       await createTeam.mutateAsync(teamName.trim());
       navigate(PAGES.APP.HOME, { replace: true });
