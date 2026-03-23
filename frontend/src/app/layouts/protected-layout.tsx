@@ -3,6 +3,7 @@ import { PAGES } from '@/configs/pages.config';
 import type { OnboardingGetResponse } from '@/types/onboarding';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useAuthUser } from '@/hooks/use-auth-user';
 import type { User } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router';
@@ -12,8 +13,14 @@ type LayoutState = 'loading' | 'ready' | 'unauth';
 export default function ProtectedLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const {
+    data: user,
+    isPending: authPending,
+    isError: authQueryError,
+    error: authQueryErr,
+  } = useAuthUser();
+
   const [layoutState, setLayoutState] = useState<LayoutState>('loading');
-  const [user, setUser] = useState<User | null>(null);
   const [onboardingFetchError, setOnboardingFetchError] = useState<string | null>(
     null,
   );
@@ -23,16 +30,15 @@ export default function ProtectedLayout() {
     const supabase = createClient();
 
     async function run() {
-      setLayoutState('loading');
       setOnboardingFetchError(null);
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      if (authPending) {
+        setLayoutState('loading');
+        return;
+      }
 
-      if (cancelled) return;
-
-      if (!session?.user) {
+      if (authQueryError) {
+        console.error('auth query', authQueryErr);
         setLayoutState('unauth');
         navigate(PAGES.AUTH.LOGIN, {
           replace: true,
@@ -41,7 +47,16 @@ export default function ProtectedLayout() {
         return;
       }
 
-      setUser(session.user);
+      if (!user) {
+        setLayoutState('unauth');
+        navigate(PAGES.AUTH.LOGIN, {
+          replace: true,
+          state: { from: location.pathname },
+        });
+        return;
+      }
+
+      setLayoutState('loading');
 
       const { data, error } = await supabase.functions.invoke<OnboardingGetResponse>(
         'onboarding',
@@ -82,7 +97,14 @@ export default function ProtectedLayout() {
     return () => {
       cancelled = true;
     };
-  }, [location.pathname, navigate]);
+  }, [
+    authPending,
+    authQueryError,
+    authQueryErr,
+    user,
+    location.pathname,
+    navigate,
+  ]);
 
   if (layoutState === 'loading') {
     return (
@@ -96,6 +118,8 @@ export default function ProtectedLayout() {
     return null;
   }
 
+  const outletUser: User | null = user ?? null;
+
   return (
     <div className='flex min-h-svh flex-col'>
       <header className='border-b px-4 py-3'>
@@ -107,9 +131,9 @@ export default function ProtectedLayout() {
             Team app
           </Link>
           <div className='flex items-center gap-3'>
-            {user?.email ? (
+            {outletUser?.email ? (
               <span className='text-muted-foreground hidden truncate text-sm sm:inline max-w-[200px]'>
-                {user.email}
+                {outletUser.email}
               </span>
             ) : null}
             <Link
@@ -132,7 +156,7 @@ export default function ProtectedLayout() {
       ) : null}
 
       <main className='flex-1'>
-        <Outlet context={{ user }} />
+        <Outlet context={{ user: outletUser }} />
       </main>
     </div>
   );
