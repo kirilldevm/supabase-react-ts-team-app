@@ -1,14 +1,11 @@
-import { buttonVariants } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { PAGES } from '@/configs/pages.config';
 import { useAuthUser } from '@/hooks/use-auth-user';
-import { supabase } from '@/lib/client';
+import { useOnboardingStatus } from '@/hooks/use-onboarding';
 import { cn } from '@/lib/utils';
-import type { OnboardingGetResponse } from '@/types/onboarding';
 import type { User } from '@supabase/supabase-js';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router';
-
-type ShellState = 'checking' | 'ready';
 
 export default function ProtectedLayout() {
   const location = useLocation();
@@ -20,71 +17,40 @@ export default function ProtectedLayout() {
     error: authQueryErr,
   } = useAuthUser();
 
-  const [shellState, setShellState] = useState<ShellState>('checking');
-  const [onboardingFetchError, setOnboardingFetchError] = useState<
-    string | null
-  >(null);
+  const onboardingQuery = useOnboardingStatus(user?.id, {
+    enabled: Boolean(user),
+  });
 
   const authPending = authStatus === 'pending';
 
   useEffect(() => {
-    let cancelled = false;
+    if (!user) return;
+    if (onboardingQuery.isPending) return;
+    if (onboardingQuery.isError) return;
 
-    async function run() {
-      setOnboardingFetchError(null);
+    const data = onboardingQuery.data;
+    if (!data) return;
 
-      if (authPending || authQueryError) {
-        setShellState('checking');
-        return;
-      }
+    const needsOnboarding = data.needsOnboarding === true;
+    const path = location.pathname;
 
-      if (!user) {
-        setShellState('checking');
-        return;
-      }
-
-      setShellState('checking');
-
-      const { data, error } =
-        await supabase.functions.invoke<OnboardingGetResponse>('onboarding', {
-          method: 'GET',
-        });
-
-      if (cancelled) return;
-
-      if (error) {
-        console.error('onboarding GET', error);
-        setOnboardingFetchError(
-          error.message || 'Could not load team status. Try again.',
-        );
-        setShellState('ready');
-        return;
-      }
-
-      const needsOnboarding = data?.needsOnboarding === true;
-      const path = location.pathname;
-
-      if (needsOnboarding && path !== PAGES.ONBOARDING) {
-        navigate(PAGES.ONBOARDING, { replace: true });
-        setShellState('ready');
-        return;
-      }
-
-      if (!needsOnboarding && path === PAGES.ONBOARDING) {
-        navigate(PAGES.APP.HOME, { replace: true });
-        setShellState('ready');
-        return;
-      }
-
-      setShellState('ready');
+    if (needsOnboarding && path !== PAGES.ONBOARDING) {
+      navigate(PAGES.ONBOARDING, { replace: true });
+      return;
     }
 
-    void run();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authPending, authQueryError, user, location.pathname, navigate]);
+    if (!needsOnboarding && path === PAGES.ONBOARDING) {
+      navigate(PAGES.APP.HOME, { replace: true });
+      return;
+    }
+  }, [
+    user,
+    onboardingQuery.isPending,
+    onboardingQuery.isError,
+    onboardingQuery.data,
+    location.pathname,
+    navigate,
+  ]);
 
   if (authPending) {
     return (
@@ -115,7 +81,7 @@ export default function ProtectedLayout() {
     );
   }
 
-  if (shellState === 'checking') {
+  if (onboardingQuery.isPending) {
     return (
       <div className='flex min-h-svh items-center justify-center'>
         <p className='text-muted-foreground'>Loading…</p>
@@ -124,6 +90,12 @@ export default function ProtectedLayout() {
   }
 
   const outletUser: User = user;
+
+  const onboardingErrorMessage = onboardingQuery.isError
+    ? onboardingQuery.error instanceof Error
+      ? onboardingQuery.error.message
+      : 'Could not load team status. Try again.'
+    : null;
 
   return (
     <div className='flex min-h-svh flex-col'>
@@ -151,12 +123,21 @@ export default function ProtectedLayout() {
         </div>
       </header>
 
-      {onboardingFetchError ? (
+      {onboardingErrorMessage ? (
         <div
           className='border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-center text-sm text-destructive'
           role='alert'
         >
-          {onboardingFetchError}
+          {onboardingErrorMessage}
+          <Button
+            type='button'
+            className='text-destructive ml-2 underline cursor-pointer'
+            variant='ghost'
+            size='xs'
+            onClick={() => void onboardingQuery.refetch()}
+          >
+            Retry
+          </Button>
         </div>
       ) : null}
 
