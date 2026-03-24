@@ -6,6 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { CreateProductDialog } from '@/components/products/create-product-dialog';
 import { PAGES } from '@/configs/pages.config';
 import { useTeamInfo, useTeamMembers } from '@/hooks/use-team';
 import { useTeamPresence } from '@/hooks/use-team-presence';
@@ -203,22 +204,26 @@ export default function AppHome() {
         </Card>
       </div>
 
-      {/* ── Products (placeholder) ── */}
+      {/* ── Products ── */}
       <Card>
         <CardHeader>
-          <CardTitle className='flex items-center gap-2'>
-            <Package className='size-4' />
-            Products
-          </CardTitle>
-          <CardDescription>
-            Create, edit and manage your team&apos;s products. Full table coming
-            next.
-          </CardDescription>
+          <div className='flex items-start justify-between gap-4'>
+            <div>
+              <CardTitle className='flex items-center gap-2'>
+                <Package className='size-4' />
+                Products
+              </CardTitle>
+              <CardDescription className='mt-1'>
+                Create, edit and manage your team&apos;s products.
+              </CardDescription>
+            </div>
+            {teamId ? <CreateProductDialog teamId={teamId} /> : null}
+          </div>
         </CardHeader>
         <CardContent>
           <div className='border-muted flex min-h-40 items-center justify-center rounded-lg border border-dashed'>
             <p className='text-muted-foreground text-sm'>
-              Products table — coming soon
+              Products table — coming next
             </p>
           </div>
         </CardContent>

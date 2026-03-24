@@ -1,0 +1,89 @@
+import { supabase } from '@/lib/client';
+import type { Product } from '@/types/product';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+function throwProductFailure(error: unknown, data: unknown): never {
+  if (isRecord(data) && typeof data.error === 'string') {
+    throw new Error(data.error);
+  }
+  if (
+    error &&
+    typeof error === 'object' &&
+    'name' in error &&
+    (error as { name?: string }).name === 'FunctionsHttpError'
+  ) {
+    const ctx = (error as { context?: unknown }).context;
+    if (isRecord(ctx)) {
+      const body = ctx.body;
+      const parsed: unknown =
+        typeof body === 'string'
+          ? (() => {
+              try {
+                return JSON.parse(body);
+              } catch {
+                return null;
+              }
+            })()
+          : body;
+      if (isRecord(parsed) && typeof parsed.error === 'string') {
+        throw new Error(parsed.error);
+      }
+    }
+  }
+  if (error && typeof error === 'object' && 'message' in error) {
+    const msg = (error as { message?: string }).message;
+    if (typeof msg === 'string' && msg.length > 0) throw new Error(msg);
+  }
+  throw new Error('Request failed');
+}
+
+class ProductService {
+  private readonly client: SupabaseClient;
+
+  constructor(client: SupabaseClient) {
+    this.client = client;
+  }
+
+  private async userAuthHeaders(): Promise<{ Authorization: string }> {
+    const { error: userError } = await this.client.auth.getUser();
+    if (userError) throw userError;
+
+    const {
+      data: { session },
+      error,
+    } = await this.client.auth.getSession();
+    if (error) throw error;
+
+    const token = session?.access_token;
+    if (!token) {
+      throw new Error('No session access token — sign in again.');
+    }
+
+    return { Authorization: `Bearer ${token}` };
+  }
+
+  async createProduct(params: {
+    title: string;
+    description?: string;
+    imageUrl?: string | null;
+  }): Promise<Product> {
+    const headers = await this.userAuthHeaders();
+
+    const { data, error } = await this.client.functions.invoke<{
+      product: Product;
+    }>('products-create', {
+      method: 'POST',
+      headers,
+      body: params,
+    });
+
+    if (error || !data) throwProductFailure(error, data);
+    return data!.product;
+  }
+}
+
+export const productService = new ProductService(supabase);

@@ -22,4 +22,12 @@ export const QUERY_KEYS = {
     MEMBERS: (teamId: string) =>
       [...QUERY_KEYS.TEAM.ALL, 'members', teamId] as const,
   },
+  PRODUCTS: {
+    ALL: ['products'] as const,
+    /** Paginated + filtered list for a team. */
+    LIST: (teamId: string) => [...QUERY_KEYS.PRODUCTS.ALL, 'list', teamId] as const,
+    /** Single product detail. */
+    DETAIL: (productId: string) =>
+      [...QUERY_KEYS.PRODUCTS.ALL, 'detail', productId] as const,
+  },
 } as const;
