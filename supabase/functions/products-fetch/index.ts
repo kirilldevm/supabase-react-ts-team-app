@@ -19,6 +19,17 @@ const VALID_SORT_COLUMNS = new Set(['created_at', 'updated_at']);
 const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 20;
 
+function buildPrefixTsquery(raw: string): string {
+  return raw
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.replace(/[&|!:<>()\s]/g, ''))
+    .filter(Boolean)
+    .map((word) => `${word}:*`)
+    .join(' & ');
+}
+
 // All product columns except the generated search_vector
 const PRODUCT_COLUMNS =
   'id, team_id, title, description, image_url, status, created_by, created_at, updated_at, deleted_at';
@@ -84,11 +95,10 @@ Deno.serve(async (req) => {
   }
 
   if (search) {
-    // Full-text search using the pre-built GIN index on search_vector
-    query = query.textSearch('search_vector', search, {
-      type: 'websearch',
-      config: 'english',
-    });
+    const tsquery = buildPrefixTsquery(search);
+    if (tsquery) {
+      query = query.filter('search_vector', 'fts(english)', tsquery);
+    }
   }
 
   if (createdBy) {
