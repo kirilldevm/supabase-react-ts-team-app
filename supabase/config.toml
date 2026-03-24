@@ -398,6 +398,18 @@ entrypoint = "./functions/hello-authed/index.ts"
 verify_jwt = false
 entrypoint = "./functions/onboarding/index.ts"
 
+[functions.products-create]
+verify_jwt = false
+entrypoint = "./functions/products-create/index.ts"
+
+[functions.products-fetch]
+verify_jwt = false
+entrypoint = "./functions/products-fetch/index.ts"
+
+[functions.products-update-status]
+verify_jwt = false
+entrypoint = "./functions/products-update-status/index.ts"
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
