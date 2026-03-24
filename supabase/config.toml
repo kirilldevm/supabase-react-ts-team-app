@@ -410,6 +410,10 @@ entrypoint = "./functions/products-fetch/index.ts"
 verify_jwt = false
 entrypoint = "./functions/products-update-status/index.ts"
 
+[functions.products-update]
+verify_jwt = false
+entrypoint = "./functions/products-update/index.ts"
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
