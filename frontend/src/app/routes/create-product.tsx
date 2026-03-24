@@ -9,25 +9,28 @@ import {
   DialogPopup,
   DialogPortal,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { PAGES } from '@/configs/pages.config';
+import { useAuthUser } from '@/hooks/use-auth-user';
 import { useCreateProduct } from '@/hooks/use-products';
+import { useTeamInfo } from '@/hooks/use-team';
 import { cn } from '@/lib/utils';
 import { type CreateProductFormValues, createProductSchema } from '@/schemas';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ImagePlus, Plus, Upload, X } from 'lucide-react';
+import { ImagePlus, Upload, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useController, useForm } from 'react-hook-form';
+import { useNavigate } from 'react-router';
 
-type Props = {
-  teamId: string;
-};
+export function CreateProduct() {
+  const navigate = useNavigate();
+  const { data: user } = useAuthUser();
+  const { data: teamData } = useTeamInfo(user?.id);
+  const teamId = teamData?.teams?.id;
 
-export function CreateProductDialog({ teamId }: Props) {
-  const [open, setOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -39,7 +42,6 @@ export function CreateProductDialog({ teamId }: Props) {
     register,
     handleSubmit,
     control,
-    reset,
     formState: { errors },
   } = useForm<CreateProductFormValues>({
     resolver: zodResolver(createProductSchema),
@@ -48,7 +50,6 @@ export function CreateProductDialog({ teamId }: Props) {
 
   const { field: imageField } = useController({ name: 'image', control });
 
-  // Revoke the object URL when component unmounts or preview changes
   useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -81,18 +82,17 @@ export function CreateProductDialog({ teamId }: Props) {
     resetFileInput();
   }
 
-  function handleClose(nextOpen: boolean) {
-    if (!nextOpen) {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-      setServerError(null);
-      reset();
-      resetFileInput();
-    }
-    setOpen(nextOpen);
+  function handleClose() {
+    void navigate(PAGES.APP.HOME);
   }
 
   async function onSubmit(values: CreateProductFormValues) {
+    if (!teamId) {
+      setServerError(
+        'Team not loaded yet — please wait a moment and try again.',
+      );
+      return;
+    }
     setServerError(null);
     try {
       await createProduct.mutateAsync({
@@ -101,7 +101,7 @@ export function CreateProductDialog({ teamId }: Props) {
         image: values.image ?? null,
         teamId,
       });
-      handleClose(false);
+      void navigate(PAGES.APP.HOME);
     } catch (err) {
       setServerError(
         err instanceof Error ? err.message : 'Something went wrong',
@@ -110,16 +110,12 @@ export function CreateProductDialog({ teamId }: Props) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogTrigger
-        render={
-          <Button type='button' size='sm'>
-            <Plus className='size-3.5' />
-            New product
-          </Button>
-        }
-      />
-
+    <Dialog
+      open
+      onOpenChange={(isOpen) => {
+        if (!isOpen) handleClose();
+      }}
+    >
       <DialogPortal>
         <DialogBackdrop />
         <DialogPopup>
@@ -134,7 +130,6 @@ export function CreateProductDialog({ teamId }: Props) {
           </DialogHeader>
 
           <form
-            // eslint-disable-next-line react-hooks/refs
             onSubmit={handleSubmit(onSubmit)}
             className='flex flex-col gap-4'
             noValidate
@@ -256,7 +251,7 @@ export function CreateProductDialog({ teamId }: Props) {
               <Button
                 type='button'
                 variant='outline'
-                onClick={() => handleClose(false)}
+                onClick={handleClose}
                 disabled={createProduct.isPending}
               >
                 Cancel

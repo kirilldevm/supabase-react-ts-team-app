@@ -4,6 +4,7 @@ export const PAGES = {
   /** Logged-in app (requires team / finished onboarding) */
   APP: {
     HOME: '/app',
+    CREATE_PRODUCT: '/app/create-product',
   },
 
   /** Create or join a team */

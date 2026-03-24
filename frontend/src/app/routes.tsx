@@ -1,18 +1,18 @@
-import { type RouteObject } from 'react-router';
-import { Navigate, Outlet } from 'react-router';
 import { PAGES } from '@/configs/pages.config';
+import { Navigate, Outlet, type RouteObject } from 'react-router';
 import GuestLayout from './layouts/guest-layout';
 import ProtectedLayout from './layouts/protected-layout';
 import AppHome from './routes/app-home';
-import OnboardingPage from './routes/onboarding';
-import Login from './routes/login';
-import SignUp from './routes/sign-up';
-import ForgotPassword from './routes/forgot-password';
-import UpdatePassword from './routes/update-password';
-import Logout from './routes/logout';
 import AuthCallback from './routes/auth.callback';
 import AuthConfirm from './routes/auth.confirm';
 import AuthError from './routes/auth.error';
+import { CreateProduct } from './routes/create-product';
+import ForgotPassword from './routes/forgot-password';
+import Login from './routes/login';
+import Logout from './routes/logout';
+import OnboardingPage from './routes/onboarding';
+import SignUp from './routes/sign-up';
+import UpdatePassword from './routes/update-password';
 
 const routes: RouteObject[] = [
   {
@@ -58,6 +58,12 @@ const routes: RouteObject[] = [
           {
             path: 'app',
             element: <AppHome />,
+            children: [
+              {
+                path: 'create-product',
+                element: <CreateProduct />,
+              },
+            ],
           },
           {
             path: 'onboarding',
