@@ -7,11 +7,12 @@ import AuthCallback from './routes/auth.callback';
 import AuthConfirm from './routes/auth.confirm';
 import AuthError from './routes/auth.error';
 import { CreateProduct } from './routes/create-product';
+import EditProduct from './routes/edit-product';
 import ForgotPassword from './routes/forgot-password';
-import ProductDetail from './routes/product-detail';
 import Login from './routes/login';
 import Logout from './routes/logout';
 import OnboardingPage from './routes/onboarding';
+import ProductDetail from './routes/product-detail';
 import SignUp from './routes/sign-up';
 import UpdatePassword from './routes/update-password';
 
@@ -69,6 +70,10 @@ const routes: RouteObject[] = [
           {
             path: 'app/products/:id',
             element: <ProductDetail />,
+          },
+          {
+            path: 'app/products/:id/edit',
+            element: <EditProduct />,
           },
           {
             path: 'onboarding',

@@ -6,6 +6,7 @@ export const PAGES = {
     HOME: '/app',
     CREATE_PRODUCT: '/app/create-product',
     PRODUCT: (id: string) => `/app/products/${id}`,
+    EDIT_PRODUCT: (id: string) => `/app/products/${id}/edit`,
   },
 
   /** Create or join a team */

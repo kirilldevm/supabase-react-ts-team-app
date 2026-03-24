@@ -71,7 +71,9 @@ class ProductService {
     return { Authorization: `Bearer ${token}` };
   }
 
-  async fetchProducts(params: ProductListParams = {}): Promise<ProductListResponse> {
+  async fetchProducts(
+    params: ProductListParams = {},
+  ): Promise<ProductListResponse> {
     const headers = await this.userAuthHeaders();
 
     const qs = new URLSearchParams();
@@ -83,12 +85,14 @@ class ProductService {
     if (params.sortBy) qs.set('sortBy', params.sortBy);
     if (params.sortOrder) qs.set('sortOrder', params.sortOrder);
 
-    const fnName = qs.size > 0 ? `products-fetch?${qs.toString()}` : 'products-fetch';
+    const fnName =
+      qs.size > 0 ? `products-fetch?${qs.toString()}` : 'products-fetch';
 
-    const { data, error } = await this.client.functions.invoke<ProductListResponse>(
-      fnName,
-      { method: 'GET', headers },
-    );
+    const { data, error } =
+      await this.client.functions.invoke<ProductListResponse>(fnName, {
+        method: 'GET',
+        headers,
+      });
 
     if (error || !data) throwProductFailure(error, data);
     return data!;
@@ -117,6 +121,31 @@ class ProductService {
       method: 'PATCH',
       headers,
       body: { productId, status },
+    });
+
+    if (error || !data) throwProductFailure(error, data);
+    return data!.product;
+  }
+
+  async updateProduct(params: {
+    productId: string;
+    title?: string;
+    description?: string;
+    imageUrl?: string | null;
+  }): Promise<Product> {
+    const headers = await this.userAuthHeaders();
+
+    const body: Record<string, unknown> = { productId: params.productId };
+    if (params.title !== undefined) body.title = params.title;
+    if (params.description !== undefined) body.description = params.description;
+    if (Object.hasOwn(params, 'imageUrl')) body.imageUrl = params.imageUrl;
+
+    const { data, error } = await this.client.functions.invoke<{
+      product: Product;
+    }>('products-update', {
+      method: 'PATCH',
+      headers,
+      body,
     });
 
     if (error || !data) throwProductFailure(error, data);

@@ -16,6 +16,7 @@ import {
   ImageOff,
   Loader2,
   Package,
+  Pencil,
   Trash2,
   User as UserIcon,
   Zap,
@@ -203,19 +204,28 @@ export default function ProductDetail() {
               {product.status !== 'deleted' && (
                 <div className='flex flex-wrap items-center gap-2 border-t border-border pt-4'>
                   {product.status === 'draft' && (
-                    <Button
-                      variant='default'
-                      size='sm'
-                      disabled={isUpdatingStatus}
-                      onClick={handleActivate}
-                    >
-                      {isUpdatingStatus ? (
-                        <Loader2 className='size-3.5 animate-spin' />
-                      ) : (
-                        <Zap className='size-3.5' />
-                      )}
-                      Activate
-                    </Button>
+                    <>
+                      <Link
+                        to={PAGES.APP.EDIT_PRODUCT(product.id)}
+                        className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+                      >
+                        <Pencil className='size-3.5' />
+                        Edit
+                      </Link>
+                      <Button
+                        variant='default'
+                        size='sm'
+                        disabled={isUpdatingStatus}
+                        onClick={handleActivate}
+                      >
+                        {isUpdatingStatus ? (
+                          <Loader2 className='size-3.5 animate-spin' />
+                        ) : (
+                          <Zap className='size-3.5' />
+                        )}
+                        Activate
+                      </Button>
+                    </>
                   )}
                   <Button
                     variant='destructive'

@@ -1,7 +1,11 @@
 import { QUERY_KEYS } from '@/configs/query-keys.config';
 import { productService } from '@/services/product.service';
 import { storageService } from '@/services/storage.service';
-import type { Product, ProductListParams, ProductStatus } from '@/types/product';
+import type {
+  Product,
+  ProductListParams,
+  ProductStatus,
+} from '@/types/product';
 import {
   keepPreviousData,
   useMutation,
@@ -36,14 +40,16 @@ export function useProduct(productId: string | undefined) {
   });
 }
 
-/**
- * Batch-fetch signed URLs for a list of products that have images.
- * Returns a Map<storagePath, signedUrl>.
- */
 export function useProductImages(products: Product[]) {
   const paths = useMemo(
     () =>
-      [...new Set(products.map((p) => p.image_url).filter((p): p is string => Boolean(p)))].sort(),
+      [
+        ...new Set(
+          products
+            .map((p) => p.image_url)
+            .filter((p): p is string => Boolean(p)),
+        ),
+      ].sort(),
     [products],
   );
 
@@ -59,7 +65,7 @@ export function useProductImages(products: Product[]) {
 type CreateProductParams = {
   title: string;
   description?: string;
-  image?: File | null;
+  imageUrl?: string | null;
   teamId: string;
 };
 
@@ -67,23 +73,30 @@ export function useCreateProduct() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({
-      title,
-      description,
-      image,
-      teamId,
-    }: CreateProductParams) => {
-      let imageUrl: string | null = null;
-
-      if (image) {
-        imageUrl = await storageService.uploadImage(image, teamId);
-      }
-
-      return productService.createProduct({ title, description, imageUrl });
-    },
+    mutationFn: ({ title, description, imageUrl }: CreateProductParams) =>
+      productService.createProduct({ title, description, imageUrl }),
     onSuccess: (_data, { teamId }) => {
       void queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.PRODUCTS.LIST(teamId),
+      });
+    },
+  });
+}
+
+export function useUpdateProduct() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (params: {
+      productId: string;
+      title?: string;
+      description?: string;
+      imageUrl?: string | null;
+    }) => productService.updateProduct(params),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(QUERY_KEYS.PRODUCTS.DETAIL(updated.id), updated);
+      void queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.PRODUCTS.ALL,
       });
     },
   });
@@ -101,10 +114,7 @@ export function useUpdateProductStatus() {
       status: ProductStatus;
     }) => productService.updateProductStatus(productId, status),
     onSuccess: (updated) => {
-      queryClient.setQueryData(
-        QUERY_KEYS.PRODUCTS.DETAIL(updated.id),
-        updated,
-      );
+      queryClient.setQueryData(QUERY_KEYS.PRODUCTS.DETAIL(updated.id), updated);
       void queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.PRODUCTS.ALL,
       });
