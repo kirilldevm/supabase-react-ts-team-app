@@ -6,6 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { ProductsTable } from '@/components/products/products-table';
 import { PAGES } from '@/configs/pages.config';
 import { useTeamInfo, useTeamMembers } from '@/hooks/use-team';
 import { useTeamPresence } from '@/hooks/use-team-presence';
@@ -228,13 +229,19 @@ export default function AppHome() {
               </Link>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className='border-muted flex min-h-40 items-center justify-center rounded-lg border border-dashed'>
-              <p className='text-muted-foreground text-sm'>
-                Products table — coming next
-              </p>
+        <CardContent>
+          {teamId ? (
+            <ProductsTable
+              teamId={teamId}
+              members={members}
+              currentUserId={user.id}
+            />
+          ) : (
+            <div className='border-muted flex min-h-24 items-center justify-center rounded-lg border border-dashed'>
+              <p className='text-muted-foreground text-sm'>Loading team…</p>
             </div>
-          </CardContent>
+          )}
+        </CardContent>
         </Card>
       </div>
 

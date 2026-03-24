@@ -1,5 +1,9 @@
 import { supabase } from '@/lib/client';
-import type { Product } from '@/types/product';
+import type {
+  Product,
+  ProductListParams,
+  ProductListResponse,
+} from '@/types/product';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -64,6 +68,29 @@ class ProductService {
     }
 
     return { Authorization: `Bearer ${token}` };
+  }
+
+  async fetchProducts(params: ProductListParams = {}): Promise<ProductListResponse> {
+    const headers = await this.userAuthHeaders();
+
+    const qs = new URLSearchParams();
+    if (params.page != null) qs.set('page', String(params.page));
+    if (params.limit != null) qs.set('limit', String(params.limit));
+    if (params.status) qs.set('status', params.status);
+    if (params.search?.trim()) qs.set('search', params.search.trim());
+    if (params.createdBy) qs.set('createdBy', params.createdBy);
+    if (params.sortBy) qs.set('sortBy', params.sortBy);
+    if (params.sortOrder) qs.set('sortOrder', params.sortOrder);
+
+    const fnName = qs.size > 0 ? `products-fetch?${qs.toString()}` : 'products-fetch';
+
+    const { data, error } = await this.client.functions.invoke<ProductListResponse>(
+      fnName,
+      { method: 'GET', headers },
+    );
+
+    if (error || !data) throwProductFailure(error, data);
+    return data!;
   }
 
   async createProduct(params: {

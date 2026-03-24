@@ -24,8 +24,17 @@ export const QUERY_KEYS = {
   },
   PRODUCTS: {
     ALL: ['products'] as const,
-    /** Paginated + filtered list for a team. */
+    /**
+     * Prefix for all list queries of a team.
+     * Invalidate this to bust every filter/page variant at once.
+     */
     LIST: (teamId: string) => [...QUERY_KEYS.PRODUCTS.ALL, 'list', teamId] as const,
+    /**
+     * Specific paginated + filtered list query.
+     * Includes the params object so different filter combos cache separately.
+     */
+    FILTERED: (teamId: string, params: object) =>
+      [...QUERY_KEYS.PRODUCTS.LIST(teamId), params] as const,
     /** Single product detail. */
     DETAIL: (productId: string) =>
       [...QUERY_KEYS.PRODUCTS.ALL, 'detail', productId] as const,

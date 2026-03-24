@@ -1,7 +1,28 @@
 import { QUERY_KEYS } from '@/configs/query-keys.config';
 import { productService } from '@/services/product.service';
 import { storageService } from '@/services/storage.service';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import type { ProductListParams } from '@/types/product';
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
+
+const PRODUCTS_STALE_MS = 30_000;
+
+export function useProducts(
+  teamId: string | undefined,
+  params: ProductListParams = {},
+) {
+  return useQuery({
+    queryKey: QUERY_KEYS.PRODUCTS.FILTERED(teamId ?? '', params),
+    queryFn: () => productService.fetchProducts(params),
+    enabled: Boolean(teamId),
+    staleTime: PRODUCTS_STALE_MS,
+    placeholderData: keepPreviousData,
+  });
+}
 
 type CreateProductParams = {
   title: string;
