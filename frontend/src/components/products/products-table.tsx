@@ -1,4 +1,11 @@
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Table,
   TableBody,
@@ -9,7 +16,11 @@ import {
 } from '@/components/ui/table';
 import { PAGES } from '@/configs/pages.config';
 import { useDebounce } from '@/hooks/use-debounce';
-import { useProductImages, useProducts } from '@/hooks/use-products';
+import {
+  useProductImages,
+  useProducts,
+  useUpdateProductStatus,
+} from '@/hooks/use-products';
 import { cn } from '@/lib/utils';
 import type {
   Product,
@@ -25,6 +36,11 @@ import {
   ChevronLeft,
   ChevronRight,
   ImageOff,
+  Loader2,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  Zap,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -39,7 +55,9 @@ const SKELETON_WIDTHS = [
   'w-1/3',
   'w-1/4',
   'w-1/4',
+  'w-8',
 ] as const;
+const COL_COUNT = 7;
 
 function formatDate(iso: string) {
   return new Intl.DateTimeFormat('en-US', {
@@ -122,6 +140,10 @@ export function ProductsTable({ teamId, members, currentUserId }: Props) {
   const [sortBy, setSortBy] = useState<ProductSortBy>('created_at');
   const [sortOrder, setSortOrder] = useState<ProductSortOrder>('desc');
   const [page, setPage] = useState(1);
+  /** Id of the product currently being status-mutated (shows inline spinner). */
+  const [actionPendingId, setActionPendingId] = useState<string | null>(null);
+
+  const { mutate: updateStatus } = useUpdateProductStatus();
 
   const search = useDebounce(searchInput, 350);
 
@@ -216,6 +238,7 @@ export function ProductsTable({ teamId, members, currentUserId }: Props) {
                   onSort={handleSort}
                 />
               </TableHead>
+              <TableHead className='w-12' />
             </TableRow>
           </TableHeader>
 
@@ -226,7 +249,7 @@ export function ProductsTable({ teamId, members, currentUserId }: Props) {
               ))
             ) : isError ? (
               <TableRow>
-                <TableCell colSpan={6} className='py-10 text-center'>
+                <TableCell colSpan={COL_COUNT} className='py-10 text-center'>
                   <p className='text-destructive text-sm'>
                     Could not load products.{' '}
                     <button
@@ -241,7 +264,7 @@ export function ProductsTable({ teamId, members, currentUserId }: Props) {
               </TableRow>
             ) : products.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className='py-10 text-center'>
+                <TableCell colSpan={COL_COUNT} className='py-10 text-center'>
                   <p className='text-muted-foreground text-sm'>
                     {hasFilters
                       ? 'No products match the current filters.'
@@ -254,6 +277,18 @@ export function ProductsTable({ teamId, members, currentUserId }: Props) {
                 const thumb = product.image_url
                   ? (imagesMap?.get(product.image_url) ?? null)
                   : null;
+                const isActing = actionPendingId === product.id;
+                const isDraft = product.status === 'draft';
+                const isDeleted = product.status === 'deleted';
+
+                function act(status: ProductStatus) {
+                  setActionPendingId(product.id);
+                  updateStatus(
+                    { productId: product.id, status },
+                    { onSettled: () => setActionPendingId(null) },
+                  );
+                }
+
                 return (
                   <TableRow
                     key={product.id}
@@ -302,6 +337,58 @@ export function ProductsTable({ teamId, members, currentUserId }: Props) {
                     </TableCell>
                     <TableCell className='text-muted-foreground'>
                       {formatDate(product.updated_at)}
+                    </TableCell>
+
+                    {/* ── Actions ── */}
+                    <TableCell
+                      className='w-10'
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {isDeleted ? null : isActing ? (
+                        <Loader2 className='text-muted-foreground size-4 animate-spin' />
+                      ) : (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            className={cn(
+                              buttonVariants({
+                                variant: 'ghost',
+                                size: 'icon-sm',
+                              }),
+                            )}
+                            aria-label='Row actions'
+                          >
+                            <MoreHorizontal className='size-4' />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align='end'>
+                            {isDraft && (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  void navigate(
+                                    PAGES.APP.EDIT_PRODUCT(product.id),
+                                  )
+                                }
+                              >
+                                <Pencil />
+                                Edit
+                              </DropdownMenuItem>
+                            )}
+                            {isDraft && (
+                              <DropdownMenuItem onClick={() => act('active')}>
+                                <Zap />
+                                Activate
+                              </DropdownMenuItem>
+                            )}
+                            {isDraft && <DropdownMenuSeparator />}
+                            <DropdownMenuItem
+                              variant='destructive'
+                              onClick={() => act('deleted')}
+                            >
+                              <Trash2 />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
