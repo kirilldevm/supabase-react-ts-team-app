@@ -7,18 +7,39 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { PAGES } from '@/configs/pages.config';
 import { useDebounce } from '@/hooks/use-debounce';
-import { useProducts } from '@/hooks/use-products';
+import { useProductImages, useProducts } from '@/hooks/use-products';
 import { cn } from '@/lib/utils';
-import type { Product, ProductSortBy, ProductSortOrder, ProductStatus } from '@/types/product';
+import type {
+  Product,
+  ProductSortBy,
+  ProductSortOrder,
+  ProductStatus,
+} from '@/types/product';
 import type { TeamMember } from '@/types/team';
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  ImageOff,
+} from 'lucide-react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import { ProductStatusBadge } from './product-status-badge';
 import { ProductsFilterBar } from './products-filter-bar';
 
 const PAGE_SIZE = 10;
-const SKELETON_WIDTHS = ['w-3/5', 'w-1/6', 'w-1/3', 'w-1/4', 'w-1/4'] as const;
+const SKELETON_WIDTHS = [
+  'w-8',
+  'w-3/5',
+  'w-1/6',
+  'w-1/3',
+  'w-1/4',
+  'w-1/4',
+] as const;
 
 function formatDate(iso: string) {
   return new Intl.DateTimeFormat('en-US', {
@@ -28,13 +49,16 @@ function formatDate(iso: string) {
   }).format(new Date(iso));
 }
 
-function getMemberLabel(userId: string, members: TeamMember[], currentUserId: string) {
+function getMemberLabel(
+  userId: string,
+  members: TeamMember[],
+  currentUserId: string,
+) {
   if (userId === currentUserId) return 'You';
   const m = members.find((x) => x.user_id === userId);
   return m?.email ?? `${userId.slice(0, 8)}…`;
 }
 
-// ── Sortable column header ─────────────────────────────────────────────────
 function SortHeader({
   column,
   label,
@@ -54,7 +78,7 @@ function SortHeader({
       type='button'
       onClick={() => onSort(column)}
       className={cn(
-        'flex items-center gap-1 whitespace-nowrap font-medium transition-colors hover:text-foreground',
+        'flex items-center gap-1 whitespace-nowrap font-medium transition-colors hover:text-foreground cursor-pointer',
         active ? 'text-foreground' : 'text-muted-foreground',
       )}
     >
@@ -72,7 +96,6 @@ function SortHeader({
   );
 }
 
-// ── Skeleton row ──────────────────────────────────────────────────────────
 function SkeletonRow() {
   return (
     <TableRow>
@@ -85,7 +108,6 @@ function SkeletonRow() {
   );
 }
 
-// ── Main component ────────────────────────────────────────────────────────
 type Props = {
   teamId: string;
   members: TeamMember[];
@@ -93,6 +115,7 @@ type Props = {
 };
 
 export function ProductsTable({ teamId, members, currentUserId }: Props) {
+  const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState('');
   const [status, setStatus] = useState<ProductStatus | ''>('');
   const [createdBy, setCreatedBy] = useState('');
@@ -129,9 +152,13 @@ export function ProductsTable({ teamId, members, currentUserId }: Props) {
     sortOrder,
   };
 
-  const { data, isPending, isError, refetch } = useProducts(teamId, params);
+  const { data, isPending, isError, refetch, isFetching } = useProducts(
+    teamId,
+    params,
+  );
 
   const products: Product[] = data?.products ?? [];
+  const { data: imagesMap } = useProductImages(products);
   const pagination = data?.pagination;
   const totalPages = pagination?.totalPages ?? 1;
   const total = pagination?.total ?? 0;
@@ -148,7 +175,10 @@ export function ProductsTable({ teamId, members, currentUserId }: Props) {
     <div className='flex flex-col gap-3'>
       <ProductsFilterBar
         search={searchInput}
-        onSearchChange={(v) => { setPage(1); setSearchInput(v); }}
+        onSearchChange={(v) => {
+          setPage(1);
+          setSearchInput(v);
+        }}
         status={status}
         onStatusChange={withPageReset(setStatus)}
         createdBy={createdBy}
@@ -157,12 +187,14 @@ export function ProductsTable({ teamId, members, currentUserId }: Props) {
         currentUserId={currentUserId}
         hasFilters={hasFilters}
         onClearFilters={clearFilters}
+        isFetching={isFetching}
       />
 
       <div className='rounded-lg border border-border'>
         <Table>
           <TableHeader>
             <TableRow className='bg-muted/50 hover:bg-muted/50'>
+              <TableHead className='w-12' />
               <TableHead>Title</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created by</TableHead>
@@ -189,10 +221,12 @@ export function ProductsTable({ teamId, members, currentUserId }: Props) {
 
           <TableBody>
             {isPending ? (
-              Array.from({ length: PAGE_SIZE }).map((_, i) => <SkeletonRow key={i} />)
+              Array.from({ length: PAGE_SIZE }).map((_, i) => (
+                <SkeletonRow key={i} />
+              ))
             ) : isError ? (
               <TableRow>
-                <TableCell colSpan={5} className='py-10 text-center'>
+                <TableCell colSpan={6} className='py-10 text-center'>
                   <p className='text-destructive text-sm'>
                     Could not load products.{' '}
                     <button
@@ -207,7 +241,7 @@ export function ProductsTable({ teamId, members, currentUserId }: Props) {
               </TableRow>
             ) : products.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className='py-10 text-center'>
+                <TableCell colSpan={6} className='py-10 text-center'>
                   <p className='text-muted-foreground text-sm'>
                     {hasFilters
                       ? 'No products match the current filters.'
@@ -216,30 +250,62 @@ export function ProductsTable({ teamId, members, currentUserId }: Props) {
                 </TableCell>
               </TableRow>
             ) : (
-              products.map((product) => (
-                <TableRow key={product.id}>
-                  <TableCell className='max-w-xs whitespace-normal'>
-                    <p className='truncate font-medium'>{product.title}</p>
-                    {product.description ? (
-                      <p className='text-muted-foreground mt-0.5 truncate text-xs'>
-                        {product.description}
-                      </p>
-                    ) : null}
-                  </TableCell>
-                  <TableCell>
-                    <ProductStatusBadge status={product.status} />
-                  </TableCell>
-                  <TableCell className='text-muted-foreground'>
-                    {getMemberLabel(product.created_by, members, currentUserId)}
-                  </TableCell>
-                  <TableCell className='text-muted-foreground'>
-                    {formatDate(product.created_at)}
-                  </TableCell>
-                  <TableCell className='text-muted-foreground'>
-                    {formatDate(product.updated_at)}
-                  </TableCell>
-                </TableRow>
-              ))
+              products.map((product) => {
+                const thumb = product.image_url
+                  ? (imagesMap?.get(product.image_url) ?? null)
+                  : null;
+                return (
+                  <TableRow
+                    key={product.id}
+                    className='cursor-pointer'
+                    onClick={() => void navigate(PAGES.APP.PRODUCT(product.id))}
+                  >
+                    {/* ── Thumbnail ── */}
+                    <TableCell className='w-12 pr-0'>
+                      {product.image_url ? (
+                        thumb ? (
+                          <img
+                            src={thumb}
+                            alt=''
+                            className='size-9 rounded object-cover'
+                          />
+                        ) : (
+                          <div className='size-9 animate-pulse rounded bg-muted' />
+                        )
+                      ) : (
+                        <div className='flex size-9 items-center justify-center rounded bg-muted/60'>
+                          <ImageOff className='size-4 text-muted-foreground/40' />
+                        </div>
+                      )}
+                    </TableCell>
+
+                    <TableCell className='max-w-xs whitespace-normal'>
+                      <p className='truncate font-medium'>{product.title}</p>
+                      {product.description ? (
+                        <p className='text-muted-foreground mt-0.5 truncate text-xs'>
+                          {product.description}
+                        </p>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>
+                      <ProductStatusBadge status={product.status} />
+                    </TableCell>
+                    <TableCell className='text-muted-foreground'>
+                      {getMemberLabel(
+                        product.created_by,
+                        members,
+                        currentUserId,
+                      )}
+                    </TableCell>
+                    <TableCell className='text-muted-foreground'>
+                      {formatDate(product.created_at)}
+                    </TableCell>
+                    <TableCell className='text-muted-foreground'>
+                      {formatDate(product.updated_at)}
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>

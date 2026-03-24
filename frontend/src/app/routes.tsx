@@ -8,6 +8,7 @@ import AuthConfirm from './routes/auth.confirm';
 import AuthError from './routes/auth.error';
 import { CreateProduct } from './routes/create-product';
 import ForgotPassword from './routes/forgot-password';
+import ProductDetail from './routes/product-detail';
 import Login from './routes/login';
 import Logout from './routes/logout';
 import OnboardingPage from './routes/onboarding';
@@ -64,6 +65,10 @@ const routes: RouteObject[] = [
                 element: <CreateProduct />,
               },
             ],
+          },
+          {
+            path: 'app/products/:id',
+            element: <ProductDetail />,
           },
           {
             path: 'onboarding',

@@ -30,6 +30,26 @@ class StorageService {
     if (error) throw error;
     return data.signedUrl;
   }
+
+  async getSignedUrls(
+    paths: string[],
+    expiresInSeconds = 3600,
+  ): Promise<Map<string, string>> {
+    if (paths.length === 0) return new Map();
+
+    const { data, error } = await this.client.storage
+      .from(STORAGE_BUCKET)
+      .createSignedUrls(paths, expiresInSeconds);
+
+    if (error) throw error;
+
+    const map = new Map<string, string>();
+    data?.forEach(({ path, signedUrl }) => {
+      if (path && signedUrl) map.set(path, signedUrl);
+    });
+
+    return map;
+  }
 }
 
 export const storageService = new StorageService(supabase);

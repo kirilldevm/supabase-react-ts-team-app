@@ -3,6 +3,7 @@ import type {
   Product,
   ProductListParams,
   ProductListResponse,
+  ProductStatus,
 } from '@/types/product';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -91,6 +92,35 @@ class ProductService {
 
     if (error || !data) throwProductFailure(error, data);
     return data!;
+  }
+
+  async getProduct(productId: string): Promise<Product> {
+    const { data, error } = await this.client
+      .from('products')
+      .select('*')
+      .eq('id', productId)
+      .single();
+
+    if (error) throw error;
+    return data as Product;
+  }
+
+  async updateProductStatus(
+    productId: string,
+    status: ProductStatus,
+  ): Promise<Product> {
+    const headers = await this.userAuthHeaders();
+
+    const { data, error } = await this.client.functions.invoke<{
+      product: Product;
+    }>('products-update-status', {
+      method: 'PATCH',
+      headers,
+      body: { productId, status },
+    });
+
+    if (error || !data) throwProductFailure(error, data);
+    return data!.product;
   }
 
   async createProduct(params: {

@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/select';
 import type { ProductStatus } from '@/types/product';
 import type { TeamMember } from '@/types/team';
-import { Search } from 'lucide-react';
+import { Loader2, Search } from 'lucide-react';
 
 const STATUS_LABELS: Record<ProductStatus | '', string> = {
   '': 'All statuses',
@@ -34,6 +34,8 @@ type Props = {
 
   hasFilters: boolean;
   onClearFilters: () => void;
+
+  isFetching: boolean;
 };
 
 export function ProductsFilterBar({
@@ -47,6 +49,7 @@ export function ProductsFilterBar({
   currentUserId,
   hasFilters,
   onClearFilters,
+  isFetching,
 }: Props) {
   const createdByMember = members.find((m) => m.user_id === createdBy);
   const createdByLabel = createdBy
@@ -123,6 +126,11 @@ export function ProductsFilterBar({
           >
             Clear filters
           </Button>
+        )}
+        {isFetching && (
+          <span className='flex-1 w-full min-h-8 flex items-center justify-center'>
+            <Loader2 className='animate-spin' />
+          </span>
         )}
       </div>
     </div>

@@ -5,6 +5,7 @@ export const PAGES = {
   APP: {
     HOME: '/app',
     CREATE_PRODUCT: '/app/create-product',
+    PRODUCT: (id: string) => `/app/products/${id}`,
   },
 
   /** Create or join a team */
