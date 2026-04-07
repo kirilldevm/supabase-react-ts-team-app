@@ -115,11 +115,11 @@ class OnboardingService {
     const headers = await userAuthHeaders(this.client);
 
     const { data, error } = await this.client.functions.invoke<
-      { ok: true; team: OnboardingTeam; action: string } | OnboardingErrorBody
-    >('onboarding', {
+      { ok: true; team: OnboardingTeam } | OnboardingErrorBody
+    >('onboarding/team', {
       method: 'POST',
       headers,
-      body: { action: 'create_team', teamName },
+      body: { name: teamName },
     });
 
     if (error || !data || !('ok' in data) || !data.ok) {
@@ -133,11 +133,11 @@ class OnboardingService {
     const headers = await userAuthHeaders(this.client);
 
     const { data, error } = await this.client.functions.invoke<
-      { ok: true; team: OnboardingTeam; action: string } | OnboardingErrorBody
-    >('onboarding', {
+      { ok: true; team: OnboardingTeam } | OnboardingErrorBody
+    >('onboarding/join', {
       method: 'POST',
       headers,
-      body: { action: 'join_team', inviteCode },
+      body: { inviteCode },
     });
 
     if (error || !data || !('ok' in data) || !data.ok) {
