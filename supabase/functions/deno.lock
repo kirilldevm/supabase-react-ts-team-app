@@ -1,7 +1,13 @@
 {
   "version": "4",
   "specifiers": {
+    "jsr:@hono/hono@*": "4.12.12",
     "npm:@supabase/supabase-js@^2.99.3": "2.99.3"
+  },
+  "jsr": {
+    "@hono/hono@4.12.12": {
+      "integrity": "dc765178d38b5c4619b358062f6aa5514f7205bb0530b2823ff6265bec69c535"
+    }
   },
   "npm": {
     "@supabase/auth-js@2.99.3": {
@@ -77,9 +83,13 @@
     }
   },
   "workspace": {
+    "dependencies": [
+      "npm:@supabase/supabase-js@2.99.3"
+    ],
     "packageJson": {
       "dependencies": [
-        "npm:@supabase/supabase-js@^2.99.3"
+        "npm:@supabase/supabase-js@^2.99.3",
+        "npm:@types/deno@^2.5.0"
       ]
     }
   }
