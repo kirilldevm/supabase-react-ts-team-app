@@ -1,6 +1,7 @@
 import { Hono } from 'jsr:@hono/hono';
 import { cors } from 'jsr:@hono/hono/cors';
 import type { SupabaseClient, User } from 'npm:@supabase/supabase-js@2.99.3';
+import { z } from 'zod';
 
 import { createSupabaseForRequest } from '../_shared/auth.ts';
 import { getUserTeamId } from '../_shared/db.ts';
@@ -17,14 +18,59 @@ type Env = {
   };
 };
 
+// ── Validation schemas ────────────────────────────────────────────────────
+
+const listParamsSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  status: z.enum(['draft', 'active', 'deleted']).optional(),
+  search: z.string().trim().optional(),
+  createdBy: z.string().trim().optional(),
+  sortBy: z.enum(['created_at', 'updated_at']).default('created_at'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
+
+const createProductSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(1, 'title is required')
+    .max(200, 'title must be at most 200 characters'),
+  description: z.string().trim().max(2000).optional(),
+  imageUrl: z.string().trim().nullable().optional(),
+});
+
+const updateStatusSchema = z.object({
+  status: z.enum(['active', 'deleted'], {
+    error: "status must be one of: 'active', 'deleted'",
+  }),
+});
+
+const updateProductSchema = z
+  .object({
+    title: z
+      .string()
+      .trim()
+      .min(1, 'title must be a non-empty string')
+      .max(200)
+      .optional(),
+    description: z.string().trim().max(2000).optional(),
+    // null = delete the image, string = new path, absent = no change
+    imageUrl: z.string().trim().nullable().optional(),
+  })
+  .refine(
+    (d) =>
+      d.title !== undefined ||
+      d.description !== undefined ||
+      d.imageUrl !== undefined,
+    {
+      message: 'Provide at least one field to update',
+    },
+  );
+
 // ── Constants ─────────────────────────────────────────────────────────────
 
 const STORAGE_BUCKET = 'product-images';
-
-const VALID_STATUSES = new Set<string>(['draft', 'active', 'deleted']);
-const VALID_SORT_COLUMNS = new Set<string>(['created_at', 'updated_at']);
-const MAX_LIMIT = 100;
-const DEFAULT_LIMIT = 20;
 
 const ALLOWED_TRANSITIONS: Record<ProductStatus, ProductStatus[]> = {
   draft: ['active', 'deleted'],
@@ -63,7 +109,6 @@ async function deleteStorageImage(path: string): Promise<void> {
 
 const app = new Hono<Env>();
 
-// CORS
 app.use(
   '*',
   cors({
@@ -73,7 +118,6 @@ app.use(
   }),
 );
 
-// Auth middleware — attaches user + supabase client to every request
 app.use('*', async (c, next) => {
   const authHeader = c.req.header('Authorization');
   if (!authHeader?.startsWith('Bearer ')) {
@@ -110,29 +154,15 @@ app.get('/', async (c) => {
   const teamResult = await getUserTeamId(supabase, user.id);
   if ('error' in teamResult) return teamResult.error;
 
-  const p = new URL(c.req.url).searchParams;
+  const parsed = listParamsSchema.safeParse(c.req.query());
 
-  const page = Math.max(1, parseInt(p.get('page') ?? '1', 10) || 1);
-  const limit = Math.min(
-    MAX_LIMIT,
-    Math.max(
-      1,
-      parseInt(p.get('limit') ?? String(DEFAULT_LIMIT), 10) || DEFAULT_LIMIT,
-    ),
-  );
+  if (!parsed.success) {
+    return c.json({ error: parsed.error.message ?? 'Invalid JSON body' }, 400);
+  }
+
+  const { page, limit, status, search, createdBy, sortBy, sortOrder } =
+    parsed.data;
   const offset = (page - 1) * limit;
-
-  const statusParam = p.get('status') ?? '';
-  const status = VALID_STATUSES.has(statusParam) ? statusParam : null;
-
-  const search = p.get('search')?.trim() ?? '';
-  const createdBy = p.get('createdBy')?.trim() ?? '';
-
-  const sortByParam = p.get('sortBy') ?? '';
-  const sortBy = VALID_SORT_COLUMNS.has(sortByParam)
-    ? sortByParam
-    : 'created_at';
-  const ascending = (p.get('sortOrder') ?? '') === 'asc';
 
   let query = supabase
     .from('products')
@@ -148,7 +178,9 @@ app.get('/', async (c) => {
 
   if (createdBy) query = query.eq('created_by', createdBy);
 
-  query = query.order(sortBy, { ascending }).range(offset, offset + limit - 1);
+  query = query
+    .order(sortBy, { ascending: sortOrder === 'asc' })
+    .range(offset, offset + limit - 1);
 
   const { data, error, count } = await query;
 
@@ -174,18 +206,19 @@ app.post('/', async (c) => {
   const user = c.get('user');
   const supabase = c.get('supabase');
 
-  let body: Record<string, unknown>;
+  let body: unknown;
   try {
     body = await c.req.json();
   } catch {
     return c.json({ error: 'Invalid JSON body' }, 400);
   }
 
-  const { title, description, imageUrl } = body;
-
-  if (typeof title !== 'string' || !title.trim()) {
-    return c.json({ error: 'title is required (non-empty string)' }, 400);
+  const parsed = createProductSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json({ error: parsed.error.message ?? 'Invalid JSON body' }, 400);
   }
+
+  const { title, description, imageUrl } = parsed.data;
 
   const teamResult = await getUserTeamId(supabase, user.id);
   if ('error' in teamResult) return teamResult.error;
@@ -193,12 +226,9 @@ app.post('/', async (c) => {
   const { data, error } = await supabase
     .from('products')
     .insert({
-      title: title.trim(),
-      description: typeof description === 'string' ? description.trim() : '',
-      image_url:
-        typeof imageUrl === 'string' && imageUrl.trim()
-          ? imageUrl.trim()
-          : null,
+      title,
+      description: description ?? '',
+      image_url: imageUrl ?? null,
       created_by: user.id,
       team_id: teamResult.teamId,
       status: 'draft',
@@ -221,22 +251,19 @@ app.patch('/:id/status', async (c) => {
   const user = c.get('user');
   const supabase = c.get('supabase');
 
-  let body: Record<string, unknown>;
+  let body: unknown;
   try {
     body = await c.req.json();
   } catch {
     return c.json({ error: 'Invalid JSON body' }, 400);
   }
 
-  const newStatus = body.status;
-  const validTargets: ProductStatus[] = ['active', 'deleted'];
-
-  if (!validTargets.includes(newStatus as ProductStatus)) {
-    return c.json(
-      { error: `status must be one of: ${validTargets.join(', ')}` },
-      400,
-    );
+  const parsed = updateStatusSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json({ error: parsed.error.message ?? 'Invalid JSON body' }, 400);
   }
+
+  const { status: newStatus } = parsed.data;
 
   const teamResult = await getUserTeamId(supabase, user.id);
   if ('error' in teamResult) return teamResult.error;
@@ -257,7 +284,7 @@ app.patch('/:id/status', async (c) => {
   const currentStatus = product.status as ProductStatus;
   const allowed = ALLOWED_TRANSITIONS[currentStatus] ?? [];
 
-  if (!allowed.includes(newStatus as ProductStatus)) {
+  if (!allowed.includes(newStatus)) {
     return c.json(
       {
         error: `Cannot change status from '${currentStatus}' to '${newStatus}'`,
@@ -295,24 +322,9 @@ app.patch('/:id', async (c) => {
     return c.json({ error: 'Invalid JSON body' }, 400);
   }
 
-  const hasTitle = Object.hasOwn(raw, 'title');
-  const hasDescription = Object.hasOwn(raw, 'description');
-  const hasImageUrl = Object.hasOwn(raw, 'imageUrl');
-
-  if (!hasTitle && !hasDescription && !hasImageUrl) {
-    return c.json({ error: 'Provide at least one field to update' }, 400);
-  }
-
-  if (hasTitle && (typeof raw.title !== 'string' || !raw.title.trim())) {
-    return c.json({ error: 'title must be a non-empty string' }, 400);
-  }
-
-  if (
-    hasImageUrl &&
-    raw.imageUrl !== null &&
-    typeof raw.imageUrl !== 'string'
-  ) {
-    return c.json({ error: 'imageUrl must be a string or null' }, 400);
+  const parsed = updateProductSchema.safeParse(raw);
+  if (!parsed.success) {
+    return c.json({ error: parsed.error.message ?? 'Invalid JSON body' }, 400);
   }
 
   const teamResult = await getUserTeamId(supabase, user.id);
@@ -340,23 +352,17 @@ app.patch('/:id', async (c) => {
     );
   }
 
+  // Build patch only from fields that were explicitly present in the request body.
+  // hasOwn is still needed here: Zod strips absent optional fields, so we can't
+  // distinguish "field sent as undefined" from "field not sent at all" in parsed.data.
   const patch: Record<string, unknown> = {};
 
-  if (hasTitle) patch.title = (raw.title as string).trim();
+  if (Object.hasOwn(raw, 'title')) patch.title = parsed.data.title;
+  if (Object.hasOwn(raw, 'description'))
+    patch.description = parsed.data.description ?? '';
 
-  if (hasDescription) {
-    patch.description =
-      typeof raw.description === 'string' ? raw.description.trim() : '';
-  }
-
-  if (hasImageUrl) {
-    const newPath =
-      raw.imageUrl === null
-        ? null
-        : typeof raw.imageUrl === 'string' && raw.imageUrl.trim()
-          ? raw.imageUrl.trim()
-          : null;
-
+  if (Object.hasOwn(raw, 'imageUrl')) {
+    const newPath = parsed.data.imageUrl ?? null;
     patch.image_url = newPath;
 
     const oldPath = existing.image_url as string | null;
@@ -379,5 +385,7 @@ app.patch('/:id', async (c) => {
 
   return c.json({ product: updated });
 });
+
+// ── Serve ─────────────────────────────────────────────────────────────────
 
 Deno.serve(app.fetch);

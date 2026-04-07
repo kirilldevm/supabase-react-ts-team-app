@@ -144,7 +144,7 @@ app.post('/team', async (c) => {
 
   const parsed = createTeamSchema.safeParse(body);
   if (!parsed.success) {
-    return c.json({ error: parsed.error.errors[0].message }, 400);
+    return c.json({ error: parsed.error.message ?? 'Invalid JSON body' }, 400);
   }
 
   const { name } = parsed.data;
@@ -201,7 +201,7 @@ app.post('/join', async (c) => {
 
   const parsed = joinTeamSchema.safeParse(body);
   if (!parsed.success) {
-    return c.json({ error: parsed.error.errors[0].message }, 400);
+    return c.json({ error: parsed.error.message ?? 'Invalid JSON body' }, 400);
   }
 
   const code = parsed.data.inviteCode.toUpperCase();
