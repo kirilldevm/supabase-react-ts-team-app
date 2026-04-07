@@ -85,8 +85,7 @@ class ProductService {
     if (params.sortBy) qs.set('sortBy', params.sortBy);
     if (params.sortOrder) qs.set('sortOrder', params.sortOrder);
 
-    const fnName =
-      qs.size > 0 ? `products-fetch?${qs.toString()}` : 'products-fetch';
+    const fnName = qs.size > 0 ? `products?${qs.toString()}` : 'products';
 
     const { data, error } =
       await this.client.functions.invoke<ProductListResponse>(fnName, {
@@ -117,10 +116,10 @@ class ProductService {
 
     const { data, error } = await this.client.functions.invoke<{
       product: Product;
-    }>('products-update-status', {
+    }>(`products/${productId}/status`, {
       method: 'PATCH',
       headers,
-      body: { productId, status },
+      body: { status },
     });
 
     if (error || !data) throwProductFailure(error, data);
@@ -135,14 +134,14 @@ class ProductService {
   }): Promise<Product> {
     const headers = await this.userAuthHeaders();
 
-    const body: Record<string, unknown> = { productId: params.productId };
+    const body: Record<string, unknown> = {};
     if (params.title !== undefined) body.title = params.title;
     if (params.description !== undefined) body.description = params.description;
     if (Object.hasOwn(params, 'imageUrl')) body.imageUrl = params.imageUrl;
 
     const { data, error } = await this.client.functions.invoke<{
       product: Product;
-    }>('products-update', {
+    }>(`products/${params.productId}`, {
       method: 'PATCH',
       headers,
       body,
@@ -161,7 +160,7 @@ class ProductService {
 
     const { data, error } = await this.client.functions.invoke<{
       product: Product;
-    }>('products-create', {
+    }>('products', {
       method: 'POST',
       headers,
       body: params,

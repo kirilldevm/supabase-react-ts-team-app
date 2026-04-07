@@ -1,7 +1,7 @@
 import { Hono } from 'jsr:@hono/hono';
 import { cors } from 'jsr:@hono/hono/cors';
 import type { SupabaseClient, User } from 'npm:@supabase/supabase-js@2.99.3';
-import { z } from 'zod';
+import { z } from 'npm:zod';
 
 import { createSupabaseForRequest } from '../_shared/auth.ts';
 import { getUserTeamId } from '../_shared/db.ts';
