@@ -1,5 +1,4 @@
 import { Hono } from 'jsr:@hono/hono';
-import { cors } from 'jsr:@hono/hono/cors';
 import type { SupabaseClient, User } from 'npm:@supabase/supabase-js@2.99.3';
 import { z } from 'npm:zod';
 
@@ -74,19 +73,14 @@ async function loadProfileWithTeam(
 
 // ── App ───────────────────────────────────────────────────────────────────
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 const app = new Hono<Env>();
 
-// CORS
-app.use(
-  '*',
-  cors({
-    origin: '*',
-    allowHeaders: ['authorization', 'x-client-info', 'apikey', 'content-type'],
-    allowMethods: ['GET', 'POST', 'OPTIONS'],
-  }),
-);
-
-// Auth middleware
 app.use('*', async (c, next) => {
   const authHeader = c.req.header('Authorization');
   if (!authHeader?.startsWith('Bearer ')) {
@@ -116,7 +110,7 @@ app.use('*', async (c, next) => {
 
 // ── GET /onboarding ───────────────────────────────────────────────────────
 
-app.get('/', async (c) => {
+app.get('/onboarding', async (c) => {
   const user = c.get('user');
   const admin = createServiceClient();
 
@@ -131,7 +125,7 @@ app.get('/', async (c) => {
 
 // ── POST /onboarding/team — create a new team ─────────────────────────────
 
-app.post('/team', async (c) => {
+app.post('/onboarding/team', async (c) => {
   const user = c.get('user');
   const admin = createServiceClient();
 
@@ -188,7 +182,7 @@ app.post('/team', async (c) => {
 
 // ── POST /onboarding/join — join an existing team ─────────────────────────
 
-app.post('/join', async (c) => {
+app.post('/onboarding/join', async (c) => {
   const user = c.get('user');
   const admin = createServiceClient();
 
@@ -256,4 +250,13 @@ app.post('/join', async (c) => {
 
 // ── Serve ─────────────────────────────────────────────────────────────────
 
-Deno.serve(app.fetch);
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+
+  const res = await app.fetch(req);
+  const headers = new Headers(res.headers);
+  Object.entries(CORS_HEADERS).forEach(([k, v]) => headers.set(k, v));
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+});

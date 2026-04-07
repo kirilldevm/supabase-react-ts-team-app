@@ -1,5 +1,4 @@
 import { Hono } from 'jsr:@hono/hono';
-import { cors } from 'jsr:@hono/hono/cors';
 import type { SupabaseClient, User } from 'npm:@supabase/supabase-js@2.99.3';
 import { z } from 'npm:zod';
 
@@ -107,16 +106,13 @@ async function deleteStorageImage(path: string): Promise<void> {
 
 // ── App ───────────────────────────────────────────────────────────────────
 
-const app = new Hono<Env>();
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
-app.use(
-  '*',
-  cors({
-    origin: '*',
-    allowHeaders: ['authorization', 'x-client-info', 'apikey', 'content-type'],
-    allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-  }),
-);
+const app = new Hono<Env>();
 
 app.use('*', async (c, next) => {
   const authHeader = c.req.header('Authorization');
@@ -147,7 +143,7 @@ app.use('*', async (c, next) => {
 
 // ── GET /products ─────────────────────────────────────────────────────────
 
-app.get('/', async (c) => {
+app.get('/products', async (c) => {
   const user = c.get('user');
   const supabase = c.get('supabase');
 
@@ -202,7 +198,7 @@ app.get('/', async (c) => {
 
 // ── POST /products ────────────────────────────────────────────────────────
 
-app.post('/', async (c) => {
+app.post('/products', async (c) => {
   const user = c.get('user');
   const supabase = c.get('supabase');
 
@@ -246,7 +242,7 @@ app.post('/', async (c) => {
 
 // ── PATCH /products/:id/status ────────────────────────────────────────────
 
-app.patch('/:id/status', async (c) => {
+app.patch('/products/:id/status', async (c) => {
   const id = c.req.param('id');
   const user = c.get('user');
   const supabase = c.get('supabase');
@@ -310,7 +306,7 @@ app.patch('/:id/status', async (c) => {
 
 // ── PATCH /products/:id ───────────────────────────────────────────────────
 
-app.patch('/:id', async (c) => {
+app.patch('/products/:id', async (c) => {
   const id = c.req.param('id');
   const user = c.get('user');
   const supabase = c.get('supabase');
@@ -388,4 +384,13 @@ app.patch('/:id', async (c) => {
 
 // ── Serve ─────────────────────────────────────────────────────────────────
 
-Deno.serve(app.fetch);
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+
+  const res = await app.fetch(req);
+  const headers = new Headers(res.headers);
+  Object.entries(CORS_HEADERS).forEach(([k, v]) => headers.set(k, v));
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+});
