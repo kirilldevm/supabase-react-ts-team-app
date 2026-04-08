@@ -20,11 +20,12 @@ A full-stack team collaboration app built with React, Supabase, and Edge Functio
 | Server state | TanStack Query v5 |
 | Forms | React Hook Form + Zod |
 | UI | Base UI + Shadcn components |
-| Backend | Supabase Edge Functions (Deno) |
+| Backend | Supabase Edge Functions (Deno + Hono + Zod) |
 | Database | Supabase PostgreSQL + RLS |
-| Auth | Supabase Auth |
+| Auth | Supabase Auth (PKCE flow) |
 | Storage | Supabase Storage (private bucket) |
 | Realtime | Supabase Realtime Presence |
+| Hosting | Vercel (frontend) |
 
 ---
 
@@ -55,21 +56,17 @@ A full-stack team collaboration app built with React, Supabase, and Edge Functio
 │   │   ├── schemas/        # Zod validation schemas
 │   │   ├── services/       # Supabase client calls
 │   │   └── types/          # Shared TypeScript types
+│   ├── vercel.json         # SPA rewrite rule for Vercel
 │   └── .env.example
 ├── supabase/
 │   ├── config.toml         # Local Supabase config
 │   ├── migrations/         # SQL migrations (applied automatically)
-│   ├── functions/          # Edge Functions (Deno)
-│   │   ├── _shared/        # Shared auth, CORS, DB utilities
-│   │   ├── onboarding/
-│   │   ├── products-create/
-│   │   ├── products-fetch/
-│   │   ├── products-update/
-│   │   └── products-update-status/
-│   └── .env.example
-├── scripts/
-│   └── deploy-edge-functions.ps1
-└── GOOGLE-OAUTH.md         # Google OAuth troubleshooting guide
+│   └── functions/          # Edge Functions (Deno)
+│       ├── _shared/        # Shared auth, DB, admin utilities
+│       ├── onboarding/     # GET /onboarding, POST /onboarding/team, POST /onboarding/join
+│       └── products/       # GET /products, POST /products, PATCH /products/:id, PATCH /products/:id/status
+└── scripts/
+    └── deploy-edge-functions.ps1
 ```
 
 ---
@@ -83,12 +80,13 @@ npx supabase start
 ```
 
 This spins up PostgreSQL, Auth, Storage, Realtime, Studio, and Inbucket in Docker. All migrations in `supabase/migrations/` are applied automatically, including:
+
 - Database schema (`teams`, `profiles`, `products` tables, RLS policies)
 - Private `product-images` storage bucket with team-scoped policies
 - Cron job to purge old deleted products
-- GIN index for full-text search
+- GIN index + trigger for full-text search
 
-After startup, the CLI prints all local URLs and keys — keep them handy.
+After startup the CLI prints all local URLs and keys — keep them handy.
 
 | Service | URL |
 |---|---|
@@ -111,16 +109,16 @@ Edit `frontend/.env.local`:
 ```env
 VITE_SUPABASE_URL=http://127.0.0.1:54321
 
-# Use the `anon key` printed by `npx supabase start` as the publishable key
+# Use the `anon key` printed by `npx supabase start`
 VITE_SUPABASE_PUBLISHABLE_KEY=eyJ...
 ```
 
-> The local anon key printed by `npx supabase start` (a JWT starting with `eyJ`) is used as the publishable key for local development. All Edge Functions have `verify_jwt = false` in `config.toml` and perform their own token verification inside the function body.
+> The anon key printed by `npx supabase start` (a JWT starting with `eyJ`) is used as the publishable key for local development.
 
 ### 3. Install frontend dependencies
 
 ```bash
-# from the frontend/ directory
+cd frontend
 npm install
 ```
 
@@ -130,9 +128,9 @@ npm install
 npm run dev
 ```
 
-The app is available at `http://localhost:5173` (or `http://127.0.0.1:5173`).
+The app is available at `http://localhost:5173`.
 
-> **PKCE OAuth note:** always use the **same origin** (`localhost` vs `127.0.0.1`) for the entire OAuth flow. Mixing them causes "PKCE verifier not found" because the code verifier is saved in `localStorage` which is origin-scoped.
+> **PKCE OAuth note:** always use the **same origin** for the entire OAuth flow. Mixing `localhost` and `127.0.0.1` causes "PKCE verifier not found" because the code verifier is saved in `localStorage` which is origin-scoped.
 
 ---
 
@@ -155,40 +153,30 @@ npx supabase link --project-ref YOUR_PROJECT_REF
 npx supabase db push
 ```
 
-This applies all migrations from `supabase/migrations/` to your hosted database, including the schema, RLS policies, storage bucket, cron job, and search index.
+Applies all migrations from `supabase/migrations/` to your hosted database.
 
 ### 4. Deploy Edge Functions
 
-On Windows, use the provided PowerShell script which adds the required `--use-api` flag (bypasses Docker path issues):
+Use the provided PowerShell script. The `--use-api` flag bundles functions on Supabase's servers (required on Windows — local Docker path conversion strips the drive letter, causing deploy errors). The `--no-verify-jwt` flag lets the function handle its own auth instead of the gateway blocking requests before they reach the function.
 
 ```powershell
 # Deploy all functions
 .\scripts\deploy-edge-functions.ps1
 
-# Deploy specific functions
-.\scripts\deploy-edge-functions.ps1 onboarding products-create products-fetch
+# Deploy specific functions only
+.\scripts\deploy-edge-functions.ps1 onboarding products
 ```
 
-Or deploy manually with `npx supabase`:
+Or manually with `npx`:
 
 ```bash
-npx supabase functions deploy onboarding --use-api
-npx supabase functions deploy products-create --use-api
-npx supabase functions deploy products-fetch --use-api
-npx supabase functions deploy products-update --use-api
-npx supabase functions deploy products-update-status --use-api
+npx supabase functions deploy onboarding --use-api --no-verify-jwt
+npx supabase functions deploy products --use-api --no-verify-jwt
 ```
-
-> **`--use-api` flag:** bundles the function on Supabase's servers instead of locally. Required on Windows because Docker's path conversion strips the drive letter (`E:` → `` empty string), causing a "no such file" error at deploy time.
 
 ### 5. Configure frontend environment for production
 
-```bash
-cd frontend
-cp .env.example .env.local
-```
-
-Edit `frontend/.env.local`:
+In your Vercel project settings (or `frontend/.env.local` for a manual build):
 
 ```env
 VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
@@ -199,23 +187,41 @@ VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 
 ### 6. Set up Auth redirect URLs
 
-In your Supabase Dashboard → **Authentication → URL Configuration**:
+In Supabase Dashboard → **Authentication → URL Configuration**:
 
-- **Site URL**: your production domain (e.g. `https://yourapp.com`)
-- **Redirect URLs**: add your dev origins:
+- **Site URL**: your production domain (e.g. `https://yourapp.vercel.app`)
+- **Redirect URLs**: add all origins:
+  - `https://yourapp.vercel.app/auth/callback`
   - `http://localhost:5173/auth/callback`
   - `http://127.0.0.1:5173/auth/callback`
-  - `https://yourapp.com/auth/callback`
+
+In Supabase Dashboard → **Authentication → Sign In Methods → Advanced**:
+
+- **Auth flow type**: set to **PKCE** (not Implicit)
+
+### 7. Deploy to Vercel
+
+The `frontend/vercel.json` already contains the SPA rewrite rule so all client-side routes (including `/auth/callback`) are served by `index.html`. Just connect the `frontend/` directory to Vercel and set the environment variables above.
 
 ---
 
 ## Google OAuth (Optional)
 
-See [GOOGLE-OAUTH.md](./GOOGLE-OAUTH.md) for the full setup guide.
+**Hosted project:**
 
-**Quick summary:**
-- **Hosted project**: Dashboard → Authentication → Providers → Google → enable + paste credentials
-- **Local**: copy `supabase/.env.example` → `supabase/.env`, fill in `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` and `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`, set `[auth.external.google] enabled = true` in `config.toml`, then restart with `npx supabase stop && npx supabase start`
+1. [Google Cloud Console](https://console.cloud.google.com) → create an OAuth 2.0 client → set Authorized redirect URI to `https://YOUR_PROJECT_REF.supabase.co/auth/v1/callback`
+2. Supabase Dashboard → Authentication → Providers → Google → enable + paste Client ID and Secret
+
+**Local development:**
+
+1. Add `http://127.0.0.1:54321/auth/v1/callback` as an Authorized redirect URI in Google Cloud Console
+2. Copy `supabase/.env.example` → `supabase/.env` and fill in:
+   ```env
+   SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID=...
+   SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET=...
+   ```
+3. In `supabase/config.toml` set `[auth.external.google] enabled = true`
+4. Restart: `npx supabase stop && npx supabase start`
 
 ---
 
@@ -237,9 +243,6 @@ npx supabase migration new <name>
 # Generate TypeScript types from local DB schema
 npx supabase gen types typescript --local > frontend/src/types/database.types.ts
 
-# Run the frontend dev server
-cd frontend && npm run dev
-
 # Build the frontend
 cd frontend && npm run build
 ```
@@ -248,17 +251,46 @@ cd frontend && npm run build
 
 ## Edge Function Architecture
 
-All backend logic runs in Supabase Edge Functions (Deno). Shared utilities live in `supabase/functions/_shared/`:
+Each function uses **Hono** as an in-process router and **Zod** for request validation. CORS is handled at the `Deno.serve` wrapper level (not inside Hono) so that `OPTIONS` preflight requests are answered before any routing or auth logic runs.
+
+```ts
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+  const res = await app.fetch(req);
+  // inject CORS headers into every response
+  ...
+});
+```
+
+### URL routing
+
+Supabase strips `/functions/v1` from the incoming URL but **keeps the function name** as the first path segment. A request to `/functions/v1/products?page=1` arrives at the function as `/products?page=1`.
+
+| External URL | Method | Handler |
+|---|---|---|
+| `/functions/v1/onboarding` | GET | Check onboarding status |
+| `/functions/v1/onboarding/team` | POST | Create a new team |
+| `/functions/v1/onboarding/join` | POST | Join a team by invite code |
+| `/functions/v1/products` | GET | List products (search, filter, sort, paginate) |
+| `/functions/v1/products` | POST | Create a product |
+| `/functions/v1/products/:id` | PATCH | Update product fields |
+| `/functions/v1/products/:id/status` | PATCH | Change product status |
+
+### Shared utilities (`supabase/functions/_shared/`)
 
 | File | Purpose |
 |---|---|
-| `auth.ts` | Extract and verify the user JWT from the request |
-| `cors.ts` | CORS preflight response helper |
-| `db.ts` | Get the calling user's `team_id` from `profiles` |
-| `httpJson.ts` | Parse JSON body, send JSON responses |
-| `supabaseAdmin.ts` | Service-role client (bypasses RLS for trusted operations) |
+| `auth.ts` | Create a Supabase client scoped to the request's JWT |
+| `db.ts` | Fetch the calling user's `team_id` from `profiles` |
+| `supabaseAdmin.ts` | Service-role client (bypasses RLS for trusted writes) |
+| `httpJson.ts` | JSON response helpers |
+| `cors.ts` | Legacy CORS headers (unused in current functions) |
 
-All functions have `verify_jwt = false` in `config.toml` — the gateway does **not** check the token. Instead, `getUserFromRequest()` in `_shared/auth.ts` validates the bearer token manually, so the function can return a clean error response rather than a raw 401.
+### JWT verification
+
+All functions are deployed with `--no-verify-jwt`. The Supabase gateway does **not** pre-check the token — instead, each function validates the bearer token itself via `createSupabaseForRequest`. This is necessary because the gateway would otherwise reject `OPTIONS` preflight requests (which carry no token) with a 401 before they reach the function.
 
 ---
 
@@ -280,5 +312,5 @@ public.products     id | team_id | title | description | image_url
 ```
 
 - **RLS** is enabled on all tables — users only see/modify data belonging to their team.
-- `search_vector` is a stored `TSVECTOR` generated from `title` (weight A) and `description` (weight B), indexed with GIN for fast prefix full-text search.
-- Product images are stored in the private `product-images` Storage bucket under the path `{team_id}/{uuid}.{ext}`. Access requires a signed URL (1-hour expiry).
+- `search_vector` is a stored `TSVECTOR` (title weight A, description weight B) kept up to date by a trigger, indexed with GIN for fast prefix full-text search.
+- Product images are stored in the private `product-images` bucket under `{team_id}/{uuid}.{ext}`. Frontend access requires a signed URL (1-hour expiry generated via `storage.createSignedUrls`).

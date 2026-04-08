@@ -76,7 +76,8 @@ async function loadProfileWithTeam(
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type',
 };
 
 const app = new Hono<Env>();
@@ -123,7 +124,7 @@ app.get('/onboarding', async (c) => {
   return c.json({ needsOnboarding: false, team: row.team });
 });
 
-// ── POST /onboarding/team — create a new team ─────────────────────────────
+// ── POST /onboarding/team ─────────────────────────────
 
 app.post('/onboarding/team', async (c) => {
   const user = c.get('user');
@@ -180,7 +181,7 @@ app.post('/onboarding/team', async (c) => {
   return c.json({ ok: true, team: team as TeamSummary }, 201);
 });
 
-// ── POST /onboarding/join — join an existing team ─────────────────────────
+// ── POST /onboarding/join ─────────────────────────
 
 app.post('/onboarding/join', async (c) => {
   const user = c.get('user');
@@ -258,5 +259,9 @@ Deno.serve(async (req) => {
   const res = await app.fetch(req);
   const headers = new Headers(res.headers);
   Object.entries(CORS_HEADERS).forEach(([k, v]) => headers.set(k, v));
-  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+  return new Response(res.body, {
+    status: res.status,
+    statusText: res.statusText,
+    headers,
+  });
 });
